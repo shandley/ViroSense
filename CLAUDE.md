@@ -147,6 +147,12 @@ uv run pytest tests/ -v
 uv run virosense --help
 ```
 
+## Future Work / Notes
+
+- **UHGV** (Unified Human Gut Virome Catalog, https://uhgv.jgi.doe.gov): 873K virus genomes / 168K vOTUs from human gut. Potential benchmarking resource for validating detect module sensitivity on real gut phages, especially crAss-like. Not for training (gut-biased).
+- **Prophage noise**: ~2.8% of cellular training fragments likely land in prophage regions. Post-hoc filtering script ready (`scripts/filter_prophage_noise.py`). v2 prep script supports geNomad masking (`--mask-prophages`).
+- **crAss-like phages**: Absent from v1 reference data. v2 prep script adds Steigviridae query (`--n-crass`).
+
 ## Biosecurity Note
 
 Evo2 deliberately excludes eukaryotic viral sequences from training for biosecurity. ViroSense uses Evo2 only for discriminative tasks (classification, clustering) — not sequence generation. This is a safe, defensive application focused on detection and characterization of existing sequences.
