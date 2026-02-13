@@ -77,8 +77,12 @@ def detect(input_file, output, backend, model, threshold,
               help="vHold annotation output to merge (optional)")
 @click.option("-t", "--threads", default=4, type=int,
               help="Number of threads (default: 4)")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory to cache embeddings")
 def context(input_file, orfs, output, backend, model, window,
-            vhold_output, threads):
+            vhold_output, threads, layer, cache_dir):
     """Annotate ORFs with genomic context from Evo2 embeddings.
 
     Combines DNA-level context (Evo2) with protein-level annotation (vHold)
@@ -94,6 +98,8 @@ def context(input_file, orfs, output, backend, model, window,
         window_size=window,
         vhold_output=vhold_output,
         threads=threads,
+        layer=layer,
+        cache_dir=cache_dir,
     )
 
 
@@ -175,8 +181,13 @@ def cluster(input_file, output, backend, model, mode, algorithm,
               help="FASTA file to predict on (skip training)")
 @click.option("--classifier-model", type=click.Path(exists=True), default=None,
               help="Pre-trained classifier model for prediction")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory to cache embeddings")
 def classify(input_file, labels, output, backend, model, task,
-             epochs, lr, val_split, predict, classifier_model):
+             epochs, lr, val_split, predict, classifier_model,
+             layer, cache_dir):
     """Train or apply a discriminative viral classifier on Evo2 embeddings.
 
     Trains a classification head on frozen Evo2 embeddings to predict
@@ -195,6 +206,8 @@ def classify(input_file, labels, output, backend, model, task,
         val_split=val_split,
         predict_file=predict,
         classifier_model_path=classifier_model,
+        layer=layer,
+        cache_dir=cache_dir,
     )
 
 
