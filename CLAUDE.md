@@ -60,6 +60,9 @@ virosense classify -i seqs.fasta --labels labels.tsv -o model/
 
 ### Phase 2: Backend Layer — NOT STARTED
 - Implement NIM API client (HTTP calls to health.api.nvidia.com)
+- **Critical**: NIM API uses `decoder.layers.[n].*` layer naming, not `blocks.[n].*` (native evo2). Must translate in NIM backend.
+- Cloud API max 16,000 bp per sequence; response is base64-encoded NPZ
+- See `docs/architecture.md` for full NIM API contract
 - Mocked HTTP tests
 
 ### Phase 3: Embedding Infrastructure — NOT STARTED
