@@ -42,6 +42,7 @@ def make_httpx_response(status_code: int, json_data=None, text="", headers=None)
 
 
 # --- Layer name translation tests ---
+# These test the translation utilities (still useful for local backend)
 
 
 class TestLayerTranslation:
@@ -81,29 +82,42 @@ class TestLayerTranslation:
         assert translate_layer_to_nim("blocks.49.mlp.l3") == "decoder.layers.49.mlp.linear_fc2"
 
 
-# --- Sequence validation tests ---
+# --- Sequence sanitization tests ---
 
 
-class TestSequenceValidation:
-    def test_valid_sequences(self):
-        NIMBackend._validate_sequences({"s1": "ATGC", "s2": "GCTAGCTA"})
+class TestSequenceSanitization:
+    def test_valid_sequences_unchanged(self):
+        result = NIMBackend._sanitize_sequences({"s1": "ATGC", "s2": "GCTAGCTA"})
+        assert result == {"s1": "ATGC", "s2": "GCTAGCTA"}
 
     def test_empty_sequence_raises(self):
         with pytest.raises(ValueError, match="empty"):
-            NIMBackend._validate_sequences({"s1": ""})
+            NIMBackend._sanitize_sequences({"s1": ""})
 
     def test_too_long_sequence_raises(self):
         long_seq = "A" * (NIM_MAX_SEQUENCE_LENGTH + 1)
         with pytest.raises(ValueError, match="exceeds NIM max"):
-            NIMBackend._validate_sequences({"s1": long_seq})
+            NIMBackend._sanitize_sequences({"s1": long_seq})
 
     def test_invalid_characters_raises(self):
         with pytest.raises(ValueError, match="invalid characters"):
-            NIMBackend._validate_sequences({"s1": "ATGCXYZ"})
+            NIMBackend._sanitize_sequences({"s1": "ATGCXYZ"})
 
     def test_max_length_sequence_ok(self):
-        seq = "A" * NIM_MAX_SEQUENCE_LENGTH
-        NIMBackend._validate_sequences({"s1": seq})
+        result = NIMBackend._sanitize_sequences({"s1": "A" * NIM_MAX_SEQUENCE_LENGTH})
+        assert len(result["s1"]) == NIM_MAX_SEQUENCE_LENGTH
+
+    def test_n_bases_replaced(self):
+        result = NIMBackend._sanitize_sequences({"s1": "ATGNNNGC"})
+        assert "N" not in result["s1"]
+        assert len(result["s1"]) == 8
+        assert result["s1"][:3] == "ATG"
+        assert result["s1"][-2:] == "GC"
+        assert all(c in "ACGT" for c in result["s1"])
+
+    def test_lowercase_uppercased(self):
+        result = NIMBackend._sanitize_sequences({"s1": "atgc"})
+        assert result["s1"] == "ATGC"
 
 
 # --- Response decoding tests ---
@@ -112,7 +126,7 @@ class TestSequenceValidation:
 class TestResponseDecoding:
     def test_decode_response(self):
         backend = NIMBackend(api_key="test")
-        layer = "decoder.layers.20.mlp.linear_fc2"
+        layer = "blocks.28.mlp.l3"
         response_data, raw_embeddings = make_mock_npz_response(layer, seq_len=50, hidden_dim=4096)
 
         result = backend._decode_response(response_data, layer, "seq_1")
@@ -123,8 +137,8 @@ class TestResponseDecoding:
 
     def test_decode_response_missing_key_raises(self):
         backend = NIMBackend(api_key="test")
-        layer = "decoder.layers.20.mlp.linear_fc2"
-        response_data, _ = make_mock_npz_response("decoder.layers.99.mlp.linear_fc2")
+        layer = "blocks.28.mlp.l3"
+        response_data, _ = make_mock_npz_response("blocks.99.mlp.l3")
 
         with pytest.raises(RuntimeError, match="Expected key"):
             backend._decode_response(response_data, layer, "seq_1")
@@ -137,7 +151,7 @@ class TestExtractEmbeddings:
     @patch("virosense.backends.nim.time.sleep")
     def test_single_sequence(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "decoder.layers.28.mlp.linear_fc2"
+        layer = "blocks.28.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=100)
         mock_response = make_httpx_response(200, json_data=response_data)
 
@@ -157,6 +171,7 @@ class TestExtractEmbeddings:
         assert result.embeddings.shape == (1, 4096)
         assert result.layer == "blocks.28.mlp.l3"
 
+        # Verify native layer name is sent directly (no translation)
         mock_client.post.assert_called_once()
         call_kwargs = mock_client.post.call_args
         assert call_kwargs[1]["json"]["output_layers"] == [layer]
@@ -164,7 +179,7 @@ class TestExtractEmbeddings:
     @patch("virosense.backends.nim.time.sleep")
     def test_multiple_sequences(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "decoder.layers.28.mlp.linear_fc2"
+        layer = "blocks.28.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
         mock_response = make_httpx_response(200, json_data=response_data)
 
@@ -208,7 +223,7 @@ class TestRetryLogic:
     @patch("virosense.backends.nim.time.sleep")
     def test_429_retry_then_success(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "decoder.layers.28.mlp.linear_fc2"
+        layer = "blocks.28.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
 
         rate_limited = make_httpx_response(429, text="Rate limited")
@@ -232,7 +247,7 @@ class TestRetryLogic:
     @patch("virosense.backends.nim.time.sleep")
     def test_503_retry_then_success(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "decoder.layers.28.mlp.linear_fc2"
+        layer = "blocks.28.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
 
         unavailable = make_httpx_response(503, text="Model not ready")
