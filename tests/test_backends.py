@@ -30,9 +30,9 @@ def test_get_backend_modal():
 
 
 def test_nim_max_context():
-    """Test NIM backend max context length."""
+    """Test NIM backend max context length (cloud API limit)."""
     backend = NIMBackend(api_key="test", model="evo2_7b")
-    assert backend.max_context_length() == 1_000_000
+    assert backend.max_context_length() == 16_000
 
 
 def test_nim_availability_with_key():

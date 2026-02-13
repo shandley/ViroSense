@@ -58,12 +58,14 @@ virosense classify -i seqs.fasta --labels labels.tsv -o model/
 - All module stubs with NotImplementedError
 - Tests: CLI, I/O, backends, clustering
 
-### Phase 2: Backend Layer — NOT STARTED
-- Implement NIM API client (HTTP calls to health.api.nvidia.com)
-- **Critical**: NIM API uses `decoder.layers.[n].*` layer naming, not `blocks.[n].*` (native evo2). Must translate in NIM backend.
-- Cloud API max 16,000 bp per sequence; response is base64-encoded NPZ
-- See `docs/architecture.md` for full NIM API contract
-- Mocked HTTP tests
+### Phase 2: Backend Layer — COMPLETE
+- NIM API client implemented in `backends/nim.py` using httpx
+- Layer name translation: `blocks.[n].*` (native) <-> `decoder.layers.[n].*` (NIM) in `utils/constants.py`
+- Per-sequence HTTP calls with base64 NPZ decoding and mean-pooling
+- Rate limiting (~40 RPM with configurable delay between requests)
+- Retry logic with exponential backoff for 429 (rate limit) and 503 (model not ready)
+- Sequence validation (16,000 bp max, valid DNA bases only)
+- 28 mocked HTTP tests covering translation, decoding, retries, and error handling
 
 ### Phase 3: Embedding Infrastructure — NOT STARTED
 ### Phase 4: detect module — NOT STARTED
