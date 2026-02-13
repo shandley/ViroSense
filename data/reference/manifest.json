@@ -1,0 +1,55 @@
+{
+  "description": "ViroSense reference classifier training data",
+  "taxonomic_scope": {
+    "viral": [
+      "Caudoviricetes (tailed dsDNA bacteriophages)",
+      "Microviridae (ssDNA phage)",
+      "Inoviridae (filamentous ssDNA phage)",
+      "Archaeal DNA viruses (Lipothrixviridae, Rudiviridae, etc.)"
+    ],
+    "cellular": [
+      "Bacteria (diverse phyla, RefSeq complete genomes)",
+      "Archaea (RefSeq complete genomes)"
+    ],
+    "excluded": [
+      "RNA viruses (out-of-distribution for Evo2 DNA model)",
+      "Eukaryotic viruses (excluded from Evo2 training, biosecurity)"
+    ]
+  },
+  "source": "NCBI RefSeq via Entrez",
+  "seed": 42,
+  "genomes_downloaded": {
+    "dsDNA_phage": 584,
+    "Microviridae": 55,
+    "Inoviridae": 33,
+    "archaeal_virus": 24,
+    "total_viral": 696,
+    "bacterial": 297,
+    "archaeal": 48,
+    "total_cellular": 345
+  },
+  "fragments_before_balancing": {
+    "viral": {
+      "dsDNA_phage": 5253,
+      "Microviridae": 467,
+      "Inoviridae": 293,
+      "archaeal_virus": 216
+    },
+    "cellular": {
+      "bacterial": 2673,
+      "archaeal": 432
+    }
+  },
+  "fragments_after_balancing": {
+    "viral": 3105,
+    "cellular": 3105,
+    "total": 6210
+  },
+  "fragment_sizes_bp": [
+    500,
+    1000,
+    2000,
+    3000,
+    5000
+  ]
+}
