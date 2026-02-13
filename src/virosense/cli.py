@@ -186,3 +186,56 @@ def classify(input_file, labels, output, backend, model, task,
         predict_file=predict,
         classifier_model_path=classifier_model,
     )
+
+
+@main.command("build-reference")
+@click.option("-i", "--input", "input_file", required=True,
+              type=click.Path(exists=True),
+              help="Input FASTA with labeled viral + cellular sequences")
+@click.option("--labels", required=True, type=click.Path(exists=True),
+              help="TSV file: sequence_id<tab>label (0=cellular, 1=viral)")
+@click.option("-o", "--output", required=True, type=click.Path(),
+              help="Output directory for model and metrics")
+@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+              default="nim", help="Evo2 inference backend (default: nim)")
+@click.option("--model", default="evo2_7b",
+              help="Evo2 model (default: evo2_7b)")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--epochs", default=200, type=int,
+              help="Training epochs (default: 200)")
+@click.option("--lr", default=1e-3, type=float,
+              help="Learning rate (default: 1e-3)")
+@click.option("--val-split", default=0.2, type=float,
+              help="Validation split fraction (default: 0.2)")
+@click.option("--install", is_flag=True, default=False,
+              help="Copy trained model to default location (~/.virosense/models/)")
+@click.option("--batch-size", default=16, type=int,
+              help="Batch size for embedding extraction (default: 16)")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory to cache embeddings")
+def build_reference(input_file, labels, output, backend, model, layer,
+                    epochs, lr, val_split, install, batch_size, cache_dir):
+    """Build a reference classifier for viral detection.
+
+    Takes a FASTA file of labeled viral and cellular sequences plus a
+    labels TSV, extracts Evo2 embeddings, and trains a classifier.
+
+    The labels file should be tab-separated with two columns:
+    sequence_id and label (0 for cellular, 1 for viral).
+    """
+    from virosense.subcommands.build_reference import run_build_reference
+    run_build_reference(
+        input_file=input_file,
+        labels_file=labels,
+        output_dir=output,
+        backend=backend,
+        model=model,
+        layer=layer,
+        epochs=epochs,
+        lr=lr,
+        val_split=val_split,
+        install=install,
+        batch_size=batch_size,
+        cache_dir=cache_dir,
+    )

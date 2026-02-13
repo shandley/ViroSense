@@ -48,6 +48,7 @@ virosense detect -i contigs.fasta -o results/ --backend nim
 virosense context -i viral.fasta --orfs orfs.gff3 -o results/
 virosense cluster -i unknown.fasta -o clusters/ --mode multi
 virosense classify -i seqs.fasta --labels labels.tsv -o model/
+virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --install
 ```
 
 ## Implementation Status
@@ -67,12 +68,24 @@ virosense classify -i seqs.fasta --labels labels.tsv -o model/
 - Sequence validation (16,000 bp max, valid DNA bases only)
 - 28 mocked HTTP tests covering translation, decoding, retries, and error handling
 
-### Phase 3: Embedding Infrastructure — NOT STARTED
-### Phase 4: detect module — NOT STARTED
+### Phase 3: Embedding Infrastructure — COMPLETE (was already mostly done in Phase 1)
+- `features/evo2_embeddings.py` handles batched extraction with NPZ caching
+- Wired through NIM backend end-to-end in Phase 2/4
+
+### Phase 4: detect module — COMPLETE
+- `ViralClassifier` sklearn wrapper in `models/detector.py` (MLP, train/predict/save/load via joblib)
+- `classify_contigs()` function for binary viral/cellular classification with threshold
+- `train_classifier()` orchestration in `models/training.py` (train/val split, metrics, model save)
+- `run_detect` pipeline wired end-to-end: FASTA → filter → embeddings → classify → TSV
+- `build-reference` CLI subcommand for training reference model from labeled RefSeq data
+- Classifier metadata stores layer/model info for validation
+- 12 new tests for classifier, training, and CLI
+- **Cold-start approach**: Option D (hybrid) — ship reference model + custom training support
+
 ### Phase 5: vHold bridge — NOT STARTED
 ### Phase 6: cluster module — NOT STARTED
 ### Phase 7: context module — NOT STARTED
-### Phase 8: classify module — NOT STARTED
+### Phase 8: classify module — PARTIAL (training infrastructure complete, subcommand still stubbed)
 
 ## Environment Variables
 
