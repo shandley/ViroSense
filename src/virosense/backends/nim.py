@@ -34,7 +34,7 @@ class NIMBackend(Evo2Backend):
     to produce a single vector per sequence.
     """
 
-    MAX_RETRIES = 3
+    MAX_RETRIES = 5
     RETRY_BACKOFF = 2.0  # exponential backoff base (seconds)
 
     def __init__(self, api_key: str | None = None, model: str = "evo2_7b"):
@@ -133,7 +133,17 @@ class NIMBackend(Evo2Backend):
         }
 
         for attempt in range(self.MAX_RETRIES):
-            response = client.post(url, json=payload, headers=headers)
+            try:
+                response = client.post(url, json=payload, headers=headers)
+            except httpx.TransportError as e:
+                wait = self.RETRY_BACKOFF ** (attempt + 1)
+                logger.warning(
+                    f"Network error for {seq_id}: {e}. "
+                    f"Retrying in {wait:.1f}s "
+                    f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                )
+                time.sleep(wait)
+                continue
 
             if response.status_code == 200:
                 return self._decode_response(response.json(), layer, seq_id)
@@ -185,24 +195,44 @@ class NIMBackend(Evo2Backend):
 
         The S3 response is an NPZ with a UUID-keyed entry containing
         JSON bytes with the same {"data": "<base64>", "elapsed_ms": N}
-        structure as a direct 200 response.
+        structure as a direct 200 response. Retries on network errors.
         """
         s3_url = response.headers["location"]
-        # GET the S3 presigned URL without auth headers
-        s3_response = client.get(s3_url, headers={})
-        if s3_response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to fetch S3 result for {seq_id}: "
-                f"HTTP {s3_response.status_code}"
-            )
 
-        outer_npz = np.load(io.BytesIO(s3_response.content), allow_pickle=True)
-        keys = list(outer_npz.keys())
-        if not keys:
-            raise RuntimeError(f"Empty S3 NPZ response for {seq_id}")
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                # GET the S3 presigned URL without auth headers
+                s3_response = client.get(s3_url, headers={})
+                if s3_response.status_code != 200:
+                    raise RuntimeError(
+                        f"Failed to fetch S3 result for {seq_id}: "
+                        f"HTTP {s3_response.status_code}"
+                    )
 
-        inner_json = json.loads(outer_npz[keys[0]])
-        return self._decode_response(inner_json, layer, seq_id)
+                outer_npz = np.load(
+                    io.BytesIO(s3_response.content), allow_pickle=True
+                )
+                keys = list(outer_npz.keys())
+                if not keys:
+                    raise RuntimeError(
+                        f"Empty S3 NPZ response for {seq_id}"
+                    )
+
+                inner_json = json.loads(outer_npz[keys[0]])
+                return self._decode_response(inner_json, layer, seq_id)
+
+            except httpx.TransportError as e:
+                wait = self.RETRY_BACKOFF ** (attempt + 1)
+                logger.warning(
+                    f"S3 fetch failed for {seq_id}: {e}. "
+                    f"Retrying in {wait:.1f}s "
+                    f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                )
+                time.sleep(wait)
+
+        raise RuntimeError(
+            f"S3 fetch failed for {seq_id} after {self.MAX_RETRIES} retries"
+        )
 
     def _decode_response(
         self, data: dict, layer: str, seq_id: str

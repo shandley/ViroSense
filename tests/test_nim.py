@@ -282,7 +282,7 @@ class TestRetryLogic:
                 sequences={"s1": "ATGC"},
                 layer="blocks.28.mlp.l3",
             )
-            with pytest.raises(RuntimeError, match="after 3 retries"):
+            with pytest.raises(RuntimeError, match="after 5 retries"):
                 backend.extract_embeddings(request)
 
     @patch("virosense.backends.nim.time.sleep")
