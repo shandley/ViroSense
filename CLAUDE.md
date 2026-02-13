@@ -1,6 +1,6 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-02-07
+Last updated: 2026-02-13
 
 ## Project Overview
 
@@ -54,38 +54,56 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 ## Implementation Status
 
 ### Phase 1: Scaffold — COMPLETE
-- Project structure, pyproject.toml, CLI with all 4 commands
+- Project structure, pyproject.toml, CLI with 5 commands (detect, context, cluster, classify, build-reference)
 - Utils: constants, logging, config, device
-- All module stubs with NotImplementedError
-- Tests: CLI, I/O, backends, clustering
+- I/O: FASTA reader, ORF parser, TSV/JSON result writers
 
 ### Phase 2: Backend Layer — COMPLETE
-- NIM API client implemented in `backends/nim.py` using httpx
-- Layer name translation: `blocks.[n].*` (native) <-> `decoder.layers.[n].*` (NIM) in `utils/constants.py`
+- NIM API client (`backends/nim.py`) with httpx
+- Layer name translation: `blocks.[n].*` (native) ↔ NIM format in `utils/constants.py`
 - Per-sequence HTTP calls with base64 NPZ decoding and mean-pooling
-- Rate limiting (~40 RPM with configurable delay between requests)
-- Retry logic with exponential backoff for 429 (rate limit) and 503 (model not ready)
-- Sequence validation (16,000 bp max, valid DNA bases only)
-- 28 mocked HTTP tests covering translation, decoding, retries, and error handling
+- Handles dual NIM response: 200 JSON (short seqs) and 302 S3 redirect (long seqs)
+- Retry logic with exponential backoff for 429/503 and `httpx.TransportError` (5 attempts)
+- Sequence validation (16,000 bp max), N-base sanitization
+- Local/Modal backends remain as stubs (NIM is default and production-ready)
+- 28 mocked HTTP tests
 
-### Phase 3: Embedding Infrastructure — COMPLETE (was already mostly done in Phase 1)
-- `features/evo2_embeddings.py` handles batched extraction with NPZ caching
-- Wired through NIM backend end-to-end in Phase 2/4
+### Phase 3: Embedding Infrastructure — COMPLETE
+- `features/evo2_embeddings.py` with incremental checkpointing (saves every 50 sequences)
+- Resume-capable: loads partial cache on restart, skips completed sequences
+- NPZ cache format, batch-based extraction
+- Embedding dimension: 8192 (Evo2 40B via NIM)
 
 ### Phase 4: detect module — COMPLETE
-- `ViralClassifier` sklearn wrapper in `models/detector.py` (MLP, train/predict/save/load via joblib)
-- `classify_contigs()` function for binary viral/cellular classification with threshold
-- `train_classifier()` orchestration in `models/training.py` (train/val split, metrics, model save)
-- `run_detect` pipeline wired end-to-end: FASTA → filter → embeddings → classify → TSV
-- `build-reference` CLI subcommand for training reference model from labeled RefSeq data
-- Classifier metadata stores layer/model info for validation
-- 12 new tests for classifier, training, and CLI
-- **Cold-start approach**: Option D (hybrid) — ship reference model + custom training support
+- `ViralClassifier` sklearn MLP wrapper in `models/detector.py` (train/predict/save/load via joblib)
+- `classify_contigs()` for binary viral/cellular classification with threshold
+- `train_classifier()` in `models/training.py` (train/val split, metrics)
+- `run_detect` pipeline: FASTA → filter → embeddings → classify → TSV
+- `build-reference` subcommand for training from labeled RefSeq data
+- Cold-start approach: ship reference model + custom training support
 
-### Phase 5: vHold bridge — NOT STARTED
-### Phase 6: cluster module — NOT STARTED
-### Phase 7: context module — NOT STARTED
-### Phase 8: classify module — PARTIAL (training infrastructure complete, subcommand still stubbed)
+### Phase 5: vHold bridge — COMPLETE
+- `features/prostt5_bridge.py` loads vHold NPZ embeddings and TSV annotations
+- Optional integration via file-based data exchange
+- Used by context (annotation merge) and cluster (protein embedding fusion)
+
+### Phase 6: cluster module — COMPLETE
+- `clustering/multimodal.py` with HDBSCAN, Leiden, and KMeans algorithms
+- Embedding fusion: DNA-only, protein-only, or multi-modal concatenation
+- Auto-k estimation via elbow method (KMeans)
+- Centroid distances, representative selection, silhouette scoring
+- `run_cluster` pipeline: FASTA → Evo2 embeddings → optional vHold fusion → cluster → results
+- 21 tests
+
+### Phase 7: context module — COMPLETE
+- `io/orfs.py` ORF parser: GFF3, prodigal protein FASTA, plain protein FASTA with auto-detection
+- `run_context` pipeline: contigs + ORFs → genomic windows (±window/2 from midpoint) → Evo2 embeddings → optional vHold merge → annotated TSV
+- 14 tests
+
+### Phase 8: classify module — COMPLETE
+- `run_classify` with training mode (FASTA + labels → classifier) and prediction mode (model + sequences → predictions TSV)
+- Supports multi-class classification with string label encoding
+- 6 tests
 
 ## Environment Variables
 
@@ -99,14 +117,22 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 
 | File | Purpose |
 |------|---------|
-| `src/virosense/cli.py` | Click CLI with 4 subcommands |
+| `src/virosense/cli.py` | Click CLI with 5 subcommands |
 | `src/virosense/backends/base.py` | Evo2Backend ABC + factory |
-| `src/virosense/backends/nim.py` | NIM API client |
-| `src/virosense/features/evo2_embeddings.py` | Embedding extraction + NPZ cache |
+| `src/virosense/backends/nim.py` | NIM API client (production default) |
+| `src/virosense/features/evo2_embeddings.py` | Embedding extraction + incremental NPZ cache |
 | `src/virosense/features/prostt5_bridge.py` | Optional vHold integration |
-| `src/virosense/clustering/multimodal.py` | Multi-modal fusion + clustering |
-| `src/virosense/models/detector.py` | Viral classifier head |
+| `src/virosense/clustering/multimodal.py` | Multi-modal fusion + HDBSCAN/Leiden/KMeans |
+| `src/virosense/models/detector.py` | Viral classifier head (sklearn MLP) |
+| `src/virosense/models/training.py` | Training loop + evaluation metrics |
 | `src/virosense/io/fasta.py` | DNA FASTA I/O |
+| `src/virosense/io/orfs.py` | ORF parser (GFF3/prodigal/FASTA) |
+| `src/virosense/io/results.py` | TSV/JSON result writers |
+| `src/virosense/subcommands/detect.py` | Viral detection pipeline |
+| `src/virosense/subcommands/context.py` | ORF context annotation pipeline |
+| `src/virosense/subcommands/cluster.py` | Sequence clustering pipeline |
+| `src/virosense/subcommands/classify.py` | Classifier training/prediction pipeline |
+| `src/virosense/subcommands/build_reference.py` | Reference model builder |
 
 ## Development
 
