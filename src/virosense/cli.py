@@ -115,12 +115,19 @@ def context(input_file, orfs, output, backend, model, window,
               help="Clustering algorithm (default: hdbscan)")
 @click.option("--min-cluster-size", default=5, type=int,
               help="Minimum cluster size (default: 5)")
+@click.option("--n-clusters", default=None, type=int,
+              help="Number of clusters (kmeans only; auto-estimated if omitted)")
 @click.option("-t", "--threads", default=4, type=int,
               help="Number of threads (default: 4)")
 @click.option("--vhold-embeddings", type=click.Path(),
               help="Pre-computed ProstT5 embeddings from vHold (optional)")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory to cache embeddings")
 def cluster(input_file, output, backend, model, mode, algorithm,
-            min_cluster_size, threads, vhold_embeddings):
+            min_cluster_size, n_clusters, threads, vhold_embeddings,
+            layer, cache_dir):
     """Cluster unclassified viral sequences using multi-modal embeddings.
 
     Combines DNA (Evo2) and protein (ProstT5) embeddings to organize
@@ -135,8 +142,11 @@ def cluster(input_file, output, backend, model, mode, algorithm,
         mode=mode,
         algorithm=algorithm,
         min_cluster_size=min_cluster_size,
+        n_clusters=n_clusters,
         threads=threads,
         vhold_embeddings=vhold_embeddings,
+        layer=layer,
+        cache_dir=cache_dir,
     )
 
 
