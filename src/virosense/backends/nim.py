@@ -21,6 +21,16 @@ from virosense.utils.constants import (
     get_nvidia_api_key,
 )
 
+# NIM cloud API always serves the 40B model. Layers from block 25+
+# produce near-zero activations on the 40B architecture. Map common
+# 7B layer defaults to their 40B equivalents.
+_NIM_LAYER_MAP = {
+    "blocks.28.mlp.l3": "blocks.20.mlp.l3",
+    "blocks.28.mlp.l1": "blocks.20.mlp.l1",
+    "blocks.14.mlp.l3": "blocks.10.mlp.l3",  # 1B recommended -> 40B equivalent
+}
+_NIM_40B_MAX_VALID_BLOCK = 24  # blocks >= 25 return zeros on 40B NIM
+
 
 class NIMBackend(Evo2Backend):
     """Evo2 inference via NVIDIA NIM API.
@@ -66,9 +76,10 @@ class NIMBackend(Evo2Backend):
 
         sanitized = self._sanitize_sequences(request.sequences)
 
-        # NIM cloud API accepts native Evo2 layer names (blocks.N.mlp.l3)
-        # directly — no translation to Megatron naming needed.
-        layer = request.layer
+        # NIM cloud API serves the 40B model and uses native Evo2 layer
+        # names (blocks.N.*). Layers from block 25+ return near-zero
+        # activations, so we map 7B-default layers to 40B equivalents.
+        layer = self._resolve_layer(request.layer)
         url = f"{self._base_url}{NIM_FORWARD_ENDPOINT}"
         sequence_ids = list(sanitized.keys())
         all_embeddings = []
@@ -267,6 +278,39 @@ class NIMBackend(Evo2Backend):
             f"({seq_embedding.shape[0]},) embedding ({elapsed}ms)"
         )
         return seq_embedding
+
+    @staticmethod
+    def _resolve_layer(layer: str) -> str:
+        """Map layer name to a valid 40B layer for the NIM API.
+
+        The NIM cloud API always serves the Evo2 40B model. Layers from
+        block 25+ produce near-zero activations. This method maps common
+        7B/1B defaults to their 40B equivalents and warns about dead layers.
+        """
+        if layer in _NIM_LAYER_MAP:
+            resolved = _NIM_LAYER_MAP[layer]
+            logger.warning(
+                f"NIM API serves Evo2 40B: remapping layer "
+                f"{layer!r} -> {resolved!r} (40B equivalent)"
+            )
+            return resolved
+
+        # Check if the requested block index is in the dead zone
+        if layer.startswith("blocks."):
+            parts = layer.split(".")
+            try:
+                block_idx = int(parts[1])
+                if block_idx > _NIM_40B_MAX_VALID_BLOCK:
+                    fallback = f"blocks.20.{'.'.join(parts[2:])}"
+                    logger.warning(
+                        f"NIM API serves Evo2 40B: block {block_idx} returns "
+                        f"near-zero activations. Falling back to {fallback!r}"
+                    )
+                    return fallback
+            except (IndexError, ValueError):
+                pass
+
+        return layer
 
     @staticmethod
     def _sanitize_sequences(sequences: dict[str, str]) -> dict[str, str]:

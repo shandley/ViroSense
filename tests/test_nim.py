@@ -126,7 +126,7 @@ class TestSequenceSanitization:
 class TestResponseDecoding:
     def test_decode_response(self):
         backend = NIMBackend(api_key="test")
-        layer = "blocks.28.mlp.l3"
+        layer = "blocks.20.mlp.l3"
         response_data, raw_embeddings = make_mock_npz_response(layer, seq_len=50, hidden_dim=4096)
 
         result = backend._decode_response(response_data, layer, "seq_1")
@@ -137,7 +137,7 @@ class TestResponseDecoding:
 
     def test_decode_response_missing_key_raises(self):
         backend = NIMBackend(api_key="test")
-        layer = "blocks.28.mlp.l3"
+        layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response("blocks.99.mlp.l3")
 
         with pytest.raises(RuntimeError, match="Expected key"):
@@ -147,11 +147,65 @@ class TestResponseDecoding:
 # --- Full extract_embeddings tests (mocked HTTP) ---
 
 
+class TestLayerRemapping:
+    """Test NIM backend layer remapping for 40B model."""
+
+    def test_7b_default_remapped_to_40b(self):
+        assert NIMBackend._resolve_layer("blocks.28.mlp.l3") == "blocks.20.mlp.l3"
+
+    def test_7b_mlp_l1_remapped(self):
+        assert NIMBackend._resolve_layer("blocks.28.mlp.l1") == "blocks.20.mlp.l1"
+
+    def test_1b_default_remapped(self):
+        assert NIMBackend._resolve_layer("blocks.14.mlp.l3") == "blocks.10.mlp.l3"
+
+    def test_valid_40b_layer_unchanged(self):
+        assert NIMBackend._resolve_layer("blocks.20.mlp.l3") == "blocks.20.mlp.l3"
+
+    def test_low_block_unchanged(self):
+        assert NIMBackend._resolve_layer("blocks.10.mlp.l3") == "blocks.10.mlp.l3"
+
+    def test_high_block_falls_back(self):
+        # Block 30 is in the dead zone (>= 25), falls back to block 20
+        assert NIMBackend._resolve_layer("blocks.30.mlp.l3") == "blocks.20.mlp.l3"
+
+    def test_block_25_falls_back(self):
+        assert NIMBackend._resolve_layer("blocks.25.mlp.l3") == "blocks.20.mlp.l3"
+
+    @patch("virosense.backends.nim.time.sleep")
+    def test_remapping_used_in_api_request(self, mock_sleep):
+        """Verify remapped layer is sent to the API and used for response decoding."""
+        backend = NIMBackend(api_key="test_key")
+        # Mock response uses the remapped layer name
+        remapped_layer = "blocks.20.mlp.l3"
+        response_data, _ = make_mock_npz_response(remapped_layer, seq_len=100)
+        mock_response = make_httpx_response(200, json_data=response_data)
+
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+
+        with patch("httpx.Client", return_value=mock_client):
+            request = EmbeddingRequest(
+                sequences={"seq_1": "ATGCATGC"},
+                layer="blocks.28.mlp.l3",  # 7B default — should be remapped
+            )
+            result = backend.extract_embeddings(request)
+
+        assert result.embeddings.shape == (1, 4096)
+        # The original layer is preserved in the result
+        assert result.layer == "blocks.28.mlp.l3"
+        # But the API request used the remapped layer
+        call_kwargs = mock_client.post.call_args
+        assert call_kwargs[1]["json"]["output_layers"] == [remapped_layer]
+
+
 class TestExtractEmbeddings:
     @patch("virosense.backends.nim.time.sleep")
     def test_single_sequence(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "blocks.28.mlp.l3"
+        layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=100)
         mock_response = make_httpx_response(200, json_data=response_data)
 
@@ -163,15 +217,14 @@ class TestExtractEmbeddings:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"seq_1": "ATGCATGC"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             result = backend.extract_embeddings(request)
 
         assert result.sequence_ids == ["seq_1"]
         assert result.embeddings.shape == (1, 4096)
-        assert result.layer == "blocks.28.mlp.l3"
+        assert result.layer == "blocks.20.mlp.l3"
 
-        # Verify native layer name is sent directly (no translation)
         mock_client.post.assert_called_once()
         call_kwargs = mock_client.post.call_args
         assert call_kwargs[1]["json"]["output_layers"] == [layer]
@@ -179,7 +232,7 @@ class TestExtractEmbeddings:
     @patch("virosense.backends.nim.time.sleep")
     def test_multiple_sequences(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "blocks.28.mlp.l3"
+        layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
         mock_response = make_httpx_response(200, json_data=response_data)
 
@@ -191,7 +244,7 @@ class TestExtractEmbeddings:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC", "s2": "GCTA", "s3": "TTTT"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             result = backend.extract_embeddings(request)
 
@@ -223,7 +276,7 @@ class TestRetryLogic:
     @patch("virosense.backends.nim.time.sleep")
     def test_429_retry_then_success(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "blocks.28.mlp.l3"
+        layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
 
         rate_limited = make_httpx_response(429, text="Rate limited")
@@ -237,7 +290,7 @@ class TestRetryLogic:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             result = backend.extract_embeddings(request)
 
@@ -247,7 +300,7 @@ class TestRetryLogic:
     @patch("virosense.backends.nim.time.sleep")
     def test_503_retry_then_success(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
-        layer = "blocks.28.mlp.l3"
+        layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
 
         unavailable = make_httpx_response(503, text="Model not ready")
@@ -261,7 +314,7 @@ class TestRetryLogic:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             result = backend.extract_embeddings(request)
 
@@ -280,7 +333,7 @@ class TestRetryLogic:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             with pytest.raises(RuntimeError, match="after 5 retries"):
                 backend.extract_embeddings(request)
@@ -298,7 +351,7 @@ class TestRetryLogic:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             with pytest.raises(ValueError, match="rejected by NIM API"):
                 backend.extract_embeddings(request)
@@ -319,7 +372,7 @@ class TestRetryLogic:
         with patch("httpx.Client", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
-                layer="blocks.28.mlp.l3",
+                layer="blocks.20.mlp.l3",
             )
             with pytest.raises(RuntimeError, match="HTTP 500"):
                 backend.extract_embeddings(request)
