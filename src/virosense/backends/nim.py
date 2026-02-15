@@ -174,10 +174,11 @@ class NIMBackend(Evo2Backend):
                 time.sleep(wait)
                 continue
 
-            if response.status_code == 503:
+            if response.status_code in (502, 503):
                 wait = self.RETRY_BACKOFF ** (attempt + 1)
                 logger.warning(
-                    f"Model not ready for {seq_id}, retrying in {wait:.1f}s "
+                    f"Server error ({response.status_code}) for {seq_id}, "
+                    f"retrying in {wait:.1f}s "
                     f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
                 )
                 time.sleep(wait)
