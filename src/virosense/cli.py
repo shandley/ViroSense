@@ -214,6 +214,62 @@ def classify(input_file, labels, output, backend, model, task,
     )
 
 
+@main.command()
+@click.option("-i", "--input", "input_file", required=True,
+              type=click.Path(exists=True),
+              help="Input FASTA of bacterial chromosomes/contigs")
+@click.option("-o", "--output", required=True, type=click.Path(),
+              help="Output directory")
+@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+              default="nim", help="Evo2 inference backend (default: nim)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b"]),
+              default="evo2_7b", help="Evo2 model (default: evo2_7b)")
+@click.option("--threshold", default=0.5, type=float,
+              help="Viral score threshold (default: 0.5)")
+@click.option("--window-size", default=5000, type=int,
+              help="Sliding window size in bp (default: 5000)")
+@click.option("--step-size", default=2000, type=int,
+              help="Step size between windows in bp (default: 2000)")
+@click.option("--min-region-length", default=5000, type=int,
+              help="Minimum prophage region length in bp (default: 5000)")
+@click.option("--merge-gap", default=3000, type=int,
+              help="Max gap to merge adjacent regions in bp (default: 3000)")
+@click.option("--batch-size", default=16, type=int,
+              help="Batch size for embedding extraction (default: 16)")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory to cache embeddings")
+@click.option("--classifier-model", type=click.Path(exists=True),
+              default=None,
+              help="Pre-trained classifier model (default: reference model)")
+def prophage(input_file, output, backend, model, threshold,
+             window_size, step_size, min_region_length, merge_gap,
+             batch_size, layer, cache_dir, classifier_model):
+    """Detect prophage regions in bacterial chromosomes.
+
+    Scans input sequences with a sliding window, scores each window
+    using a trained viral classifier, and merges consecutive high-scoring
+    windows into prophage region calls. Outputs TSV and BED files.
+    """
+    from virosense.subcommands.prophage import run_prophage
+    run_prophage(
+        input_file=input_file,
+        output_dir=output,
+        backend=backend,
+        model=model,
+        threshold=threshold,
+        window_size=window_size,
+        step_size=step_size,
+        min_region_length=min_region_length,
+        merge_gap=merge_gap,
+        batch_size=batch_size,
+        layer=layer,
+        cache_dir=cache_dir,
+        classifier_model=classifier_model,
+    )
+
+
 @main.command("build-reference")
 @click.option("-i", "--input", "input_file", required=True,
               type=click.Path(exists=True),
