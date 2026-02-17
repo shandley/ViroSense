@@ -1,0 +1,235 @@
+{
+  "model_path": "data/reference/model/classifier.joblib",
+  "n_sequences": 6210,
+  "class_names": [
+    "cellular",
+    "viral"
+  ],
+  "class_counts": {
+    "cellular": 3105,
+    "viral": 3105
+  },
+  "training_set": {
+    "accuracy": 0.9812,
+    "f1": 0.9812,
+    "confusion_matrix": [
+      [
+        3025,
+        80
+      ],
+      [
+        37,
+        3068
+      ]
+    ],
+    "misclassified": 117
+  },
+  "cross_validation": {
+    "n_folds": 5,
+    "accuracy": 0.9717,
+    "f1": 0.9717,
+    "precision": 0.9717,
+    "recall": 0.9717,
+    "auc": 0.9933,
+    "confusion_matrix": [
+      [
+        3010,
+        95
+      ],
+      [
+        81,
+        3024
+      ]
+    ],
+    "per_fold": [
+      {
+        "fold": 1,
+        "accuracy": 0.9790660225442834,
+        "f1": 0.9790651539708264,
+        "precision": 0.9791455403200917,
+        "recall": 0.9790660225442834,
+        "auc": 0.9966704785020265
+      },
+      {
+        "fold": 2,
+        "accuracy": 0.9637681159420289,
+        "f1": 0.9637641460196643,
+        "precision": 0.96397144280259,
+        "recall": 0.9637681159420289,
+        "auc": 0.9926771271726813
+      },
+      {
+        "fold": 3,
+        "accuracy": 0.9750402576489533,
+        "f1": 0.9750394647701968,
+        "precision": 0.9751006244942841,
+        "recall": 0.9750402576489533,
+        "auc": 0.9952572470250829
+      },
+      {
+        "fold": 4,
+        "accuracy": 0.9726247987117552,
+        "f1": 0.9726241598207619,
+        "precision": 0.9726689228614773,
+        "recall": 0.9726247987117552,
+        "auc": 0.99509128956724
+      },
+      {
+        "fold": 5,
+        "accuracy": 0.9677938808373591,
+        "f1": 0.9677855273498798,
+        "precision": 0.968279596408482,
+        "recall": 0.9677938808373591,
+        "auc": 0.9903070472278623
+      }
+    ]
+  },
+  "confidence": {
+    "mean": 0.9794,
+    "median": 0.9993,
+    "low_confidence_count": 118,
+    "low_confidence_fraction": 0.019
+  },
+  "hard_examples": [
+    {
+      "sequence_id": "phage_dsdna_NC_004313.1_f500_2",
+      "true_label": "viral",
+      "predicted_label": "viral",
+      "confidence": 0.5006,
+      "correct": true
+    },
+    {
+      "sequence_id": "phage_dsdna_NC_042100.1_f2000_1",
+      "true_label": "viral",
+      "predicted_label": "cellular",
+      "confidence": 0.502,
+      "correct": false
+    },
+    {
+      "sequence_id": "phage_dsdna_NC_023719.1_f500_0",
+      "true_label": "viral",
+      "predicted_label": "viral",
+      "confidence": 0.5024,
+      "correct": true
+    },
+    {
+      "sequence_id": "archvir_NC_074654.1_f500_0",
+      "true_label": "viral",
+      "predicted_label": "cellular",
+      "confidence": 0.5038,
+      "correct": false
+    },
+    {
+      "sequence_id": "bact_NZ_CP162087.1_f1000_1",
+      "true_label": "cellular",
+      "predicted_label": "cellular",
+      "confidence": 0.5063,
+      "correct": true
+    },
+    {
+      "sequence_id": "bact_NZ_CP084428.1_f2000_0",
+      "true_label": "cellular",
+      "predicted_label": "viral",
+      "confidence": 0.508,
+      "correct": false
+    },
+    {
+      "sequence_id": "bact_NZ_CP067022.1_f500_1",
+      "true_label": "cellular",
+      "predicted_label": "viral",
+      "confidence": 0.509,
+      "correct": false
+    },
+    {
+      "sequence_id": "archvir_NC_029314.1_f500_0",
+      "true_label": "viral",
+      "predicted_label": "cellular",
+      "confidence": 0.5094,
+      "correct": false
+    },
+    {
+      "sequence_id": "bact_NZ_CP165811.1_f2000_1",
+      "true_label": "cellular",
+      "predicted_label": "viral",
+      "confidence": 0.51,
+      "correct": false
+    },
+    {
+      "sequence_id": "bact_NZ_CP014304.1_f500_2",
+      "true_label": "cellular",
+      "predicted_label": "cellular",
+      "confidence": 0.5104,
+      "correct": true
+    },
+    {
+      "sequence_id": "bact_NZ_CP049285.1_f2000_0",
+      "true_label": "cellular",
+      "predicted_label": "cellular",
+      "confidence": 0.5121,
+      "correct": true
+    },
+    {
+      "sequence_id": "phage_dsdna_NC_007581.1_f1000_0",
+      "true_label": "viral",
+      "predicted_label": "viral",
+      "confidence": 0.5153,
+      "correct": true
+    },
+    {
+      "sequence_id": "phage_dsdna_NC_071039.1_f500_2",
+      "true_label": "viral",
+      "predicted_label": "cellular",
+      "confidence": 0.5154,
+      "correct": false
+    },
+    {
+      "sequence_id": "bact_NZ_CP023195.1_f1000_0",
+      "true_label": "cellular",
+      "predicted_label": "cellular",
+      "confidence": 0.5157,
+      "correct": true
+    },
+    {
+      "sequence_id": "archvir_NC_030884.1_f2000_0",
+      "true_label": "viral",
+      "predicted_label": "viral",
+      "confidence": 0.5157,
+      "correct": true
+    },
+    {
+      "sequence_id": "bact_NZ_CP112897.1_f500_2",
+      "true_label": "cellular",
+      "predicted_label": "viral",
+      "confidence": 0.5166,
+      "correct": false
+    },
+    {
+      "sequence_id": "phage_ino_NC_073759.1_f500_1",
+      "true_label": "viral",
+      "predicted_label": "cellular",
+      "confidence": 0.52,
+      "correct": false
+    },
+    {
+      "sequence_id": "bact_NZ_CP090319.1_f1000_0",
+      "true_label": "cellular",
+      "predicted_label": "cellular",
+      "confidence": 0.5201,
+      "correct": true
+    },
+    {
+      "sequence_id": "phage_dsdna_NC_048718.1_f500_1",
+      "true_label": "viral",
+      "predicted_label": "cellular",
+      "confidence": 0.5213,
+      "correct": false
+    },
+    {
+      "sequence_id": "arch_NZ_CP157522.1_f1000_1",
+      "true_label": "cellular",
+      "predicted_label": "cellular",
+      "confidence": 0.5225,
+      "correct": true
+    }
+  ]
+}

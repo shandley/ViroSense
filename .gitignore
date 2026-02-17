@@ -21,6 +21,7 @@ htmlcov/
 *.npz
 *.h5
 *.hdf5
+*.joblib
 
 ~/.virosense/
 

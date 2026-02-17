@@ -341,9 +341,19 @@ def main():
         "hard_examples": hard_examples,
     }
 
+    class _NumpyEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, (np.integer,)):
+                return int(obj)
+            if isinstance(obj, (np.floating,)):
+                return float(obj)
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return super().default(obj)
+
     summary_path = output_dir / "validation_report.json"
     with open(summary_path, "w") as f:
-        json.dump(summary, f, indent=2)
+        json.dump(summary, f, indent=2, cls=_NumpyEncoder)
     print(f"\n  Validation report: {summary_path}")
 
     # Write hard examples TSV
