@@ -1,0 +1,17 @@
+{
+  "threshold": 0.8,
+  "cellular_scored": 3105,
+  "suspect_prophage_count": 52,
+  "suspect_prophage_fraction": 0.0167,
+  "fragments_before": 6210,
+  "fragments_after": 6158,
+  "viral_after": 3105,
+  "cellular_after": 3053,
+  "score_distribution": {
+    ">=0.5": 80,
+    ">=0.6": 68,
+    ">=0.7": 56,
+    ">=0.8": 52,
+    ">=0.9": 32
+  }
+}

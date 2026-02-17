@@ -1,0 +1,17 @@
+{
+  "accuracy": 0.976461038961039,
+  "f1": 0.9764614266764257,
+  "precision": 0.9764939808568055,
+  "recall": 0.976461038961039,
+  "auc": 0.9981366836130943,
+  "task": "viral_vs_cellular",
+  "n_train": 4926,
+  "n_val": 1232,
+  "n_classes": 2,
+  "class_names": [
+    "cellular",
+    "viral"
+  ],
+  "epochs": 200,
+  "lr": 0.001
+}
