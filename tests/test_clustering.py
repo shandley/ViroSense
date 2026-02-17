@@ -2,12 +2,14 @@
 
 import numpy as np
 import pytest
+from sklearn.preprocessing import StandardScaler
 
 from virosense.clustering.metrics import cluster_summary, silhouette_score
 from virosense.clustering.multimodal import (
     ClusterAssignment,
     _build_assignments,
     _estimate_k,
+    _reduce_pca,
     _renumber_labels,
     cluster_sequences,
     fuse_embeddings,
@@ -148,6 +150,72 @@ def test_cluster_centroid_distances():
     )
     for a in assignments:
         assert a.distance_to_centroid >= 0.0
+
+
+# --- PCA reduction tests ---
+
+
+def test_cluster_with_pca_auto():
+    """Test clustering with auto PCA (default, pca_dims=0)."""
+    embeddings, ids = _make_clusterable_data(n_per_cluster=20, n_clusters=3, dim=512)
+    assignments = cluster_sequences(
+        embeddings, ids, algorithm="hdbscan", min_cluster_size=5, pca_dims=0
+    )
+    assert len(assignments) == 60
+    cluster_ids = {a.cluster_id for a in assignments if a.cluster_id >= 0}
+    assert len(cluster_ids) >= 2
+
+
+def test_cluster_with_pca_explicit():
+    """Test clustering with explicit PCA dimensions."""
+    embeddings, ids = _make_clusterable_data(n_per_cluster=20, n_clusters=3, dim=512)
+    assignments = cluster_sequences(
+        embeddings, ids, algorithm="kmeans", n_clusters=3, pca_dims=10
+    )
+    assert len(assignments) == 60
+    cluster_ids = {a.cluster_id for a in assignments}
+    assert len(cluster_ids) == 3
+
+
+def test_cluster_without_pca():
+    """Test clustering with PCA disabled (pca_dims=None)."""
+    embeddings, ids = _make_clusterable_data(n_per_cluster=20, n_clusters=3, dim=64)
+    assignments = cluster_sequences(
+        embeddings, ids, algorithm="hdbscan", min_cluster_size=5, pca_dims=None
+    )
+    assert len(assignments) == 60
+    cluster_ids = {a.cluster_id for a in assignments if a.cluster_id >= 0}
+    assert len(cluster_ids) >= 2
+
+
+def test_reduce_pca_auto():
+    """Test auto PCA selects components for 90% variance."""
+    rng = np.random.RandomState(42)
+    # Create data with clear low-rank structure
+    n, dim = 50, 200
+    low_rank = rng.randn(n, 5) @ rng.randn(5, dim)
+    noise = rng.randn(n, dim) * 0.1
+    data = StandardScaler().fit_transform(low_rank + noise)
+    reduced = _reduce_pca(data, n_components=0)
+    # Should select a small number of components
+    assert reduced.shape[0] == n
+    assert reduced.shape[1] <= 20
+
+
+def test_reduce_pca_explicit():
+    """Test explicit PCA dimensions."""
+    rng = np.random.RandomState(42)
+    data = StandardScaler().fit_transform(rng.randn(30, 100))
+    reduced = _reduce_pca(data, n_components=10)
+    assert reduced.shape == (30, 10)
+
+
+def test_reduce_pca_caps_at_samples():
+    """Test PCA caps components at n_samples when n_samples < n_features."""
+    rng = np.random.RandomState(42)
+    data = StandardScaler().fit_transform(rng.randn(10, 500))
+    reduced = _reduce_pca(data, n_components=50)
+    assert reduced.shape[1] <= 10
 
 
 # --- Helper function tests ---

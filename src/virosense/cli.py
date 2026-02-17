@@ -131,9 +131,11 @@ def context(input_file, orfs, output, backend, model, window,
               help="Evo2 layer for embedding extraction")
 @click.option("--cache-dir", type=click.Path(), default=None,
               help="Directory to cache embeddings")
+@click.option("--pca-dims", default=0, type=int,
+              help="PCA dimensions before clustering (0=auto 90pct variance, -1=disable)")
 def cluster(input_file, output, backend, model, mode, algorithm,
             min_cluster_size, n_clusters, threads, vhold_embeddings,
-            layer, cache_dir):
+            layer, cache_dir, pca_dims):
     """Cluster unclassified viral sequences using multi-modal embeddings.
 
     Combines DNA (Evo2) and protein (ProstT5) embeddings to organize
@@ -153,6 +155,7 @@ def cluster(input_file, output, backend, model, mode, algorithm,
         vhold_embeddings=vhold_embeddings,
         layer=layer,
         cache_dir=cache_dir,
+        pca_dims=None if pca_dims < 0 else pca_dims,
     )
 
 

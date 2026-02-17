@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from loguru import logger
 from sklearn.cluster import HDBSCAN, KMeans
+from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import StandardScaler
 
@@ -55,12 +56,14 @@ def cluster_sequences(
     algorithm: str = "hdbscan",
     min_cluster_size: int = 5,
     n_clusters: int | None = None,
+    pca_dims: int | None = 0,
 ) -> list[ClusterAssignment]:
     """Cluster sequences based on fused embeddings.
 
-    Scales embeddings to zero mean / unit variance before clustering,
-    then assigns each sequence to a cluster and identifies representatives
-    (closest to centroid).
+    Applies optional PCA dimensionality reduction, then scales embeddings
+    to zero mean / unit variance before clustering. PCA is strongly
+    recommended for high-dimensional embeddings (e.g. 8192-D from Evo2)
+    where the curse of dimensionality degrades distance-based clustering.
 
     Args:
         embeddings: (N, dim) embedding matrix.
@@ -68,6 +71,8 @@ def cluster_sequences(
         algorithm: Clustering algorithm (hdbscan, leiden, kmeans).
         min_cluster_size: Minimum cluster size (hdbscan/leiden).
         n_clusters: Number of clusters (kmeans only; estimated if None).
+        pca_dims: Number of PCA components. 0 = auto-select to retain
+            90% variance (default). None = skip PCA.
 
     Returns:
         List of ClusterAssignment for each sequence.
@@ -78,21 +83,74 @@ def cluster_sequences(
             f"{embeddings.shape[0]} embeddings"
         )
 
-    # Scale embeddings for better clustering
-    scaled = StandardScaler().fit_transform(embeddings)
+    # Convert to float64 to avoid overflow in matmul with large embeddings
+    work = embeddings.astype(np.float64)
+
+    # Scale before PCA for numerical stability
+    work = StandardScaler().fit_transform(work)
+
+    # PCA dimensionality reduction
+    if pca_dims is not None:
+        work = _reduce_pca(work, pca_dims)
 
     if algorithm == "hdbscan":
-        labels = _cluster_hdbscan(scaled, min_cluster_size)
+        labels = _cluster_hdbscan(work, min_cluster_size)
     elif algorithm == "leiden":
-        labels = _cluster_leiden(scaled, min_cluster_size)
+        labels = _cluster_leiden(work, min_cluster_size)
     elif algorithm == "kmeans":
-        labels = _cluster_kmeans(scaled, n_clusters or _estimate_k(scaled))
+        labels = _cluster_kmeans(work, n_clusters or _estimate_k(work))
     else:
         raise ValueError(
             f"Unknown algorithm: {algorithm}. Choose from: hdbscan, leiden, kmeans"
         )
 
     return _build_assignments(embeddings, sequence_ids, labels)
+
+
+def _reduce_pca(
+    embeddings: np.ndarray,
+    n_components: int = 0,
+    variance_target: float = 0.9,
+) -> np.ndarray:
+    """Apply PCA dimensionality reduction.
+
+    Args:
+        embeddings: (N, dim) scaled embedding matrix.
+        n_components: Target dimensions. 0 = auto-select to retain
+            variance_target fraction of variance.
+        variance_target: Target cumulative variance ratio for auto mode.
+
+    Returns:
+        (N, reduced_dim) reduced embedding matrix.
+    """
+    n_samples, n_features = embeddings.shape
+    max_components = min(n_samples, n_features)
+
+    if n_components == 0:
+        # Auto mode: fit full PCA, then pick components for target variance
+        n_fit = min(max_components, 50)  # cap at 50 for efficiency
+        pca = PCA(n_components=n_fit, random_state=42)
+        reduced = pca.fit_transform(embeddings)
+        cumvar = np.cumsum(pca.explained_variance_ratio_)
+        n_keep = int(np.searchsorted(cumvar, variance_target) + 1)
+        n_keep = max(n_keep, 2)  # at least 2 dimensions
+        n_keep = min(n_keep, n_fit)
+        explained = cumvar[n_keep - 1]
+        logger.info(
+            f"PCA auto-selected {n_keep} components "
+            f"({explained:.1%} variance explained)"
+        )
+        return reduced[:, :n_keep]
+    else:
+        n_components = min(n_components, max_components)
+        pca = PCA(n_components=n_components, random_state=42)
+        reduced = pca.fit_transform(embeddings)
+        explained = pca.explained_variance_ratio_.sum()
+        logger.info(
+            f"PCA reduced to {n_components} components "
+            f"({explained:.1%} variance explained)"
+        )
+        return reduced
 
 
 def _cluster_hdbscan(embeddings: np.ndarray, min_cluster_size: int) -> np.ndarray:

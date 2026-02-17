@@ -19,6 +19,7 @@ def run_cluster(
     vhold_embeddings: str | None = None,
     layer: str = "blocks.28.mlp.l3",
     cache_dir: str | None = None,
+    pca_dims: int | None = 0,
 ) -> None:
     """Run multi-modal clustering pipeline.
 
@@ -88,6 +89,7 @@ def run_cluster(
         algorithm=algorithm,
         min_cluster_size=min_cluster_size,
         n_clusters=n_clusters,
+        pca_dims=pca_dims,
     )
 
     # 6. Compute quality metrics
