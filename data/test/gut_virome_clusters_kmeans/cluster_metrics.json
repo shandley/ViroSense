@@ -1,0 +1,15 @@
+{
+  "n_clusters": 2,
+  "n_noise": 0,
+  "n_total": 89,
+  "cluster_sizes": [
+    62,
+    27
+  ],
+  "mean_cluster_size": 44.5,
+  "median_cluster_size": 44.5,
+  "silhouette_score": 0.30329859256744385,
+  "algorithm": "kmeans",
+  "mode": "dna",
+  "n_sequences": 89
+}

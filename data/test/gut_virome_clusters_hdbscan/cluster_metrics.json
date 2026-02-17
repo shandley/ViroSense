@@ -1,0 +1,15 @@
+{
+  "n_clusters": 2,
+  "n_noise": 12,
+  "n_total": 89,
+  "cluster_sizes": [
+    3,
+    74
+  ],
+  "mean_cluster_size": 38.5,
+  "median_cluster_size": 38.5,
+  "silhouette_score": 0.36535727977752686,
+  "algorithm": "hdbscan",
+  "mode": "dna",
+  "n_sequences": 89
+}

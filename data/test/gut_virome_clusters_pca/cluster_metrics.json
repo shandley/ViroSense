@@ -1,0 +1,7 @@
+{
+  "n_components": 10,
+  "variance_explained": 0.834,
+  "n_clusters": 9,
+  "n_noise": 33,
+  "silhouette": 0.0464
+}

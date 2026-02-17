@@ -1,0 +1,90 @@
+sequence_id	cluster_id	length	viral_score	checkv_quality	genonad_taxonomy
+k141_92	0	1884	1.0	Not-determined	
+k141_8	4	501	0.9999	Low-quality	
+k141_100	-1	535	0.9957	Low-quality	
+k141_52	4	555	0.9042	Not-determined	
+k141_56	-1	572	0.9708	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_125	-1	3592	0.9963	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_72	-1	613	1.0	Low-quality	
+k141_28	-1	704	0.9941	Low-quality	
+k141_65	-1	2182	1.0	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_32	3	882	0.9997	Not-determined	
+k141_16	-1	933	0.9933	Low-quality	
+k141_20	-1	954	0.8652	Not-determined	
+k141_60	-1	1015	0.9997	Not-determined	
+k141_96	0	1059	0.9985	Not-determined	
+k141_134	7	1076	0.9574	Low-quality	
+k141_80	-1	1105	0.9948	Low-quality	
+k141_97	7	557	0.9971	Low-quality	
+k141_137	3	1429	0.9997	Low-quality	
+k141_117	-1	566	0.9993	Not-determined	
+k141_48	-1	1978	0.9931	Low-quality	
+k141_109	-1	599	0.9433	Low-quality	
+k141_37	5	577	0.9921	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_126	-1	1660	0.9994	Low-quality	
+k141_88	7	2204	0.9998	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_5	-1	1015	0.9907	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_25	6	930	0.9991	Low-quality	
+k141_120	3	1101	0.895	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_93	-1	1237	0.9999	Not-determined	
+k141_129	4	1494	0.9996	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_123	-1	1621	0.7293	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_41	5	1605	0.9981	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_140	7	3602	0.9945	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_44	4	787	1.0	Low-quality	
+k141_9	2	513	0.9985	Not-determined	
+k141_26	4	1025	0.9992	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_130	4	1056	0.9985	Low-quality	
+k141_21	-1	523	0.9837	Low-quality	
+k141_10	-1	603	0.9997	Not-determined	
+k141_84	5	1359	0.9997	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_73	5	1313	0.9999	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_146	1	2327	0.9382	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_76	8	2948	0.9705	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_114	-1	727	0.9763	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_13	2	755	0.9951	Not-determined	
+k141_11	4	620	0.9461	Low-quality	
+k141_70	2	655	0.9939	Low-quality	
+k141_6	4	693	0.996	Low-quality	
+k141_138	8	2873	0.9963	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_50	-1	910	0.856	Not-determined	
+k141_81	6	1484	0.9922	Low-quality	
+k141_124	7	919	0.9664	Low-quality	
+k141_127	0	1414	0.9974	Low-quality	
+k141_89	4	1377	0.9976	Low-quality	
+k141_71	4	586	0.9944	Low-quality	
+k141_54	-1	595	0.9998	Not-determined	
+k141_34	-1	537	0.9892	Low-quality	
+k141_133	8	892	0.9119	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_135	3	2408	0.9995	Low-quality	
+k141_121	5	1529	0.9941	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_105	1	2660	0.9948	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_90	-1	758	0.9908	Low-quality	
+k141_14	7	753	0.9977	Low-quality	
+k141_115	6	797	0.9996	Low-quality	
+k141_45	5	1908	0.99	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_29	4	884	0.9998	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_3	-1	581	0.9779	Not-determined	
+k141_78	-1	720	0.9967	Low-quality	
+k141_42	3	1644	0.8434	Low-quality	
+k141_82	4	944	0.996	Low-quality	
+k141_35	3	899	0.9998	Low-quality	
+k141_23	-1	808	0.93	Low-quality	
+k141_43	-1	537	0.996	Not-determined	
+k141_74	-1	2550	0.9939	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_118	7	4414	0.9278	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_91	-1	899	0.939	Low-quality	
+k141_15	4	794	0.9997	Low-quality	
+k141_31	-1	539	0.989	Not-determined	
+k141_47	-1	630	0.8238	Not-determined	
+k141_83	5	1435	0.9388	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_142	4	2254	0.9982	Low-quality	
+k141_75	4	1330	1.0	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_136	5	2713	0.9987	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_102	8	4725	0.9595	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_86	8	2294	0.7646	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_87	-1	958	0.9956	Low-quality	
+k141_147	1	5816	0.998	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_144	3	7083	1.0	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
+k141_139	4	6286	1.0	High-quality	Viruses;Monodnaviria;Sangervirae;Phixviricota;Malgrandaviricetes;Petitvirales;Microviridae
+k141_145	5	1655	0.976	Low-quality	Viruses;Duplodnaviria;Heunggongvirae;Uroviricota;Caudoviricetes;;
