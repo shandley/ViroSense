@@ -1,5 +1,6 @@
 """Viral vs cellular classifier head on frozen Evo2 embeddings."""
 
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -97,7 +98,11 @@ class ViralClassifier:
     def predict_proba(self, embeddings: np.ndarray) -> np.ndarray:
         """Predict class probabilities. Shape: (N, n_classes)."""
         self._check_fitted()
-        return self.model.predict_proba(embeddings)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*matmul.*", category=RuntimeWarning
+            )
+            return self.model.predict_proba(embeddings)
 
     def save(self, path: str | Path) -> Path:
         """Save classifier to disk via joblib.

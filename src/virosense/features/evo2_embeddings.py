@@ -40,7 +40,10 @@ def extract_embeddings(
     if not cache_dir:
         # No caching — extract everything in one call
         request = EmbeddingRequest(sequences=sequences, layer=layer, model=model)
-        return backend.extract_embeddings(request)
+        result = backend.extract_embeddings(request)
+        # Upcast to float64 to avoid overflow in downstream matmul
+        result.embeddings = result.embeddings.astype(np.float64)
+        return result
 
     # Load partial cache and determine what's left to extract
     path = _cache_path(cache_dir, layer, model)
@@ -117,7 +120,12 @@ def _load_ordered(
     layer: str,
     model: str,
 ) -> EmbeddingResult:
-    """Load embeddings from cache in the requested ID order."""
+    """Load embeddings from cache in the requested ID order.
+
+    Cache stores float32 for space efficiency; returned as float64
+    to avoid overflow in downstream matmul operations (sklearn PCA,
+    StandardScaler, etc.) with high-dimensional embeddings.
+    """
     data = np.load(path, allow_pickle=True)
     cached_ids = list(data["sequence_ids"])
     cached_embeddings = data["embeddings"]
@@ -127,7 +135,7 @@ def _load_ordered(
 
     return EmbeddingResult(
         sequence_ids=requested_ids,
-        embeddings=cached_embeddings[indices],
+        embeddings=cached_embeddings[indices].astype(np.float64),
         layer=layer,
         model=model,
     )

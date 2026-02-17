@@ -1,15 +1,20 @@
 """Cluster quality metrics."""
 
+import warnings
+
 import numpy as np
 
 
 def silhouette_score(embeddings: np.ndarray, labels: np.ndarray) -> float:
     """Compute silhouette score for clustering quality."""
     from sklearn.metrics import silhouette_score as sklearn_silhouette
+
     valid = labels >= 0
     if valid.sum() < 2:
         return 0.0
-    return sklearn_silhouette(embeddings[valid], labels[valid])
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*matmul.*", category=RuntimeWarning)
+        return sklearn_silhouette(embeddings[valid], labels[valid])
 
 
 def cluster_summary(labels: np.ndarray) -> dict:

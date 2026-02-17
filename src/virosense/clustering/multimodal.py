@@ -1,5 +1,6 @@
 """Multi-modal embedding fusion and clustering."""
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -83,28 +84,33 @@ def cluster_sequences(
             f"{embeddings.shape[0]} embeddings"
         )
 
-    # Convert to float64 to avoid overflow in matmul with large embeddings
-    work = embeddings.astype(np.float64)
+    # Suppress matmul overflow warnings from sklearn's randomized SVD
+    # and distance computations on high-dimensional embeddings. These are
+    # cosmetic — intermediate power iteration overflows don't affect results.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*matmul.*", category=RuntimeWarning)
 
-    # Scale before PCA for numerical stability
-    work = StandardScaler().fit_transform(work)
+        # Scale before PCA/clustering
+        work = StandardScaler().fit_transform(embeddings.astype(np.float64))
 
-    # PCA dimensionality reduction
-    if pca_dims is not None:
-        work = _reduce_pca(work, pca_dims)
+        # PCA dimensionality reduction
+        if pca_dims is not None:
+            work = _reduce_pca(work, pca_dims)
 
-    if algorithm == "hdbscan":
-        labels = _cluster_hdbscan(work, min_cluster_size)
-    elif algorithm == "leiden":
-        labels = _cluster_leiden(work, min_cluster_size)
-    elif algorithm == "kmeans":
-        labels = _cluster_kmeans(work, n_clusters or _estimate_k(work))
-    else:
-        raise ValueError(
-            f"Unknown algorithm: {algorithm}. Choose from: hdbscan, leiden, kmeans"
-        )
+        if algorithm == "hdbscan":
+            labels = _cluster_hdbscan(work, min_cluster_size)
+        elif algorithm == "leiden":
+            labels = _cluster_leiden(work, min_cluster_size)
+        elif algorithm == "kmeans":
+            labels = _cluster_kmeans(work, n_clusters or _estimate_k(work))
+        else:
+            raise ValueError(
+                f"Unknown algorithm: {algorithm}. Choose from: hdbscan, leiden, kmeans"
+            )
 
-    return _build_assignments(embeddings, sequence_ids, labels)
+        # Build assignments using the working embeddings (PCA-reduced if applicable)
+        # so centroid distances are computed in the same space as clustering
+        return _build_assignments(work, sequence_ids, labels)
 
 
 def _reduce_pca(

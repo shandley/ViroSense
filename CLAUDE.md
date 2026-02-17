@@ -1,6 +1,6 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-02-13
+Last updated: 2026-02-17
 
 ## Project Overview
 
@@ -89,11 +89,13 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 
 ### Phase 6: cluster module — COMPLETE
 - `clustering/multimodal.py` with HDBSCAN, Leiden, and KMeans algorithms
+- PCA dimensionality reduction as default preprocessing (auto ~90% variance, `--pca-dims`)
 - Embedding fusion: DNA-only, protein-only, or multi-modal concatenation
 - Auto-k estimation via elbow method (KMeans)
 - Centroid distances, representative selection, silhouette scoring
-- `run_cluster` pipeline: FASTA → Evo2 embeddings → optional vHold fusion → cluster → results
-- 21 tests
+- `run_cluster` pipeline: FASTA → Evo2 embeddings → optional vHold fusion → PCA → cluster → results
+- Validated on real gut virome: 9 biologically coherent clusters separating Caudoviricetes from novel viruses
+- 27 tests
 
 ### Phase 7: context module — COMPLETE
 - `io/orfs.py` ORF parser: GFF3, prodigal protein FASTA, plain protein FASTA with auto-detection
@@ -147,11 +149,40 @@ uv run pytest tests/ -v
 uv run virosense --help
 ```
 
+## Benchmarks
+
+### Reference Classifier
+- Trained on 6,158 RefSeq fragments (3,105 viral + 3,053 cellular), prophage-filtered
+- Training accuracy: 99.0%, CV accuracy: 97.8%, CV AUC: 0.998
+
+### Head-to-head vs geNomad v1.11.2
+
+| Dataset | Metric | ViroSense | geNomad |
+|---------|--------|-----------|---------|
+| Simulated (200 RefSeq) | Accuracy | 96.0% | 84.0% |
+| | Precision | 95.1% | 96.0% |
+| | Recall | 97.0% | 71.0% |
+| | F1 | 96.0% | 81.6% |
+| Gut virome (CheckV truth) | Sensitivity | 98.6% | 47.9% |
+
+ViroSense's composition-based approach detects viral sequences that gene-dependent tools miss, especially short fragments and novel viruses lacking recognizable marker genes.
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/prepare_reference_data.py` | Download + fragment RefSeq genomes for training |
+| `scripts/validate_model.py` | Cross-validation, hard examples, misclassification analysis |
+| `scripts/filter_prophage_noise.py` | Post-hoc prophage contamination detection |
+| `scripts/compare_genomad.py` | Head-to-head ViroSense vs geNomad comparison |
+| `scripts/analyze_clusters.py` | PCA + HDBSCAN clustering with taxonomy cross-reference |
+
 ## Future Work / Notes
 
-- **UHGV** (Unified Human Gut Virome Catalog, https://uhgv.jgi.doe.gov): 873K virus genomes / 168K vOTUs from human gut. Potential benchmarking resource for validating detect module sensitivity on real gut phages, especially crAss-like. Not for training (gut-biased).
-- **Prophage noise**: ~2.8% of cellular training fragments likely land in prophage regions. Post-hoc filtering script ready (`scripts/filter_prophage_noise.py`). v2 prep script supports geNomad masking (`--mask-prophages`).
-- **crAss-like phages**: Absent from v1 reference data. v2 prep script adds Steigviridae query (`--n-crass`).
+- **Prophage detection mode**: Sliding-window scan of bacterial chromosomes for integrated prophage
+- **UHGV** (Unified Human Gut Virome Catalog): 873K virus genomes / 168K vOTUs. Potential benchmarking resource.
+- **Multi-modal detection**: Fuse DNA + protein embeddings for improved precision
+- **Modal backend**: Serverless GPU for production-scale processing
 
 ## Biosecurity Note
 
