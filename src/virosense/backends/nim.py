@@ -32,6 +32,10 @@ _NIM_LAYER_MAP = {
 _NIM_40B_MAX_VALID_BLOCK = 24  # blocks >= 25 return zeros on 40B NIM
 
 
+class _S3ExpiredError(Exception):
+    """Raised when an S3 presigned URL has expired (403)."""
+
+
 class NIMBackend(Evo2Backend):
     """Evo2 inference via NVIDIA NIM API.
 
@@ -160,7 +164,16 @@ class NIMBackend(Evo2Backend):
                 return self._decode_response(response.json(), layer, seq_id)
 
             if response.status_code == 302:
-                return self._fetch_s3_result(client, response, layer, seq_id)
+                try:
+                    return self._fetch_s3_result(client, response, layer, seq_id)
+                except _S3ExpiredError:
+                    wait = self.RETRY_BACKOFF ** (attempt + 1)
+                    logger.warning(
+                        f"S3 URL expired for {seq_id}, re-requesting from NIM "
+                        f"in {wait:.1f}s (attempt {attempt + 1}/{self.MAX_RETRIES})"
+                    )
+                    time.sleep(wait)
+                    continue
 
             if response.status_code == 429:
                 wait = self.RETRY_BACKOFF ** (attempt + 1)
@@ -215,6 +228,12 @@ class NIMBackend(Evo2Backend):
             try:
                 # GET the S3 presigned URL without auth headers
                 s3_response = client.get(s3_url, headers={})
+                if s3_response.status_code == 403:
+                    # Presigned URL expired — caller should retry the
+                    # full NIM request to get a fresh URL
+                    raise _S3ExpiredError(
+                        f"S3 presigned URL expired for {seq_id} (403)"
+                    )
                 if s3_response.status_code != 200:
                     raise RuntimeError(
                         f"Failed to fetch S3 result for {seq_id}: "
