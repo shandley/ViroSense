@@ -1,0 +1,11 @@
+{
+    "module": "annotate",
+    "input": "simulated_mixed_200.fasta",
+    "input_md5": "00b088bc4476e590a798906258c066ae",
+    "start_time": "2026-02-17T11:10:30.638307-06:00",
+    "parameters": {
+        "use_minimal_db": false,
+        "sensitivity": 4.2,
+        "evalue": 0.001
+    }
+}

@@ -1,0 +1,5 @@
+seq_name	length	topology	n_genes	genetic_code	plasmid_score	fdr	n_hallmarks	marker_enrichment	conjugation_genes	amr_genes
+bacterial_NZ_CP083651.1_1_663693_666679	2986	No terminal repeats	2	11	0.8416	NA	0	1.0789	NA	NA
+bacterial_NZ_CP076646.1_3_4253133_4255733	2600	No terminal repeats	5	11	0.7938	NA	0	0.4934	NA	NA
+bacterial_NZ_CP117298.1_3_2551231_2553776	2545	No terminal repeats	4	11	0.7727	NA	0	0.7208	NA	NA
+bacterial_NZ_CP090683.1_1_348966_351636	2670	No terminal repeats	4	11	0.7031	NA	0	1.9107	NA	NA

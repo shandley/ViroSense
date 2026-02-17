@@ -25,6 +25,14 @@ htmlcov/
 
 ~/.virosense/
 
+# Large test data (downloaded, not generated)
+data/genomad_db/
+data/test/simulated_viral.fasta
+data/test/simulated_bacterial.fasta
+data/test/set5_gut_virome.tar.gz
+data/test/set5_gut_virome_dataset/
+data/test/cache/
+
 .DS_Store
 *.swp
 *.swo

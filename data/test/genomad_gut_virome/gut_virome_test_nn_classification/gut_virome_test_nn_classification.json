@@ -1,0 +1,9 @@
+{
+    "module": "nn_classification",
+    "input": "gut_virome_test.fasta",
+    "input_md5": "84f4fc9e3d946036d5dea6ef48471d70",
+    "start_time": "2026-02-17T11:15:16.965583-06:00",
+    "parameters": {
+        "single_window": false
+    }
+}

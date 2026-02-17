@@ -1,0 +1,41 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad find-proviruses (v1.11.2). This will find putative        │
+│  proviral regions within the input sequences.                                │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_simulated/sim  │
+│    ulated_mixed_200_find_proviruses                                          │
+│    ├── simulated_mixed_200_find_proviruses.json (execution parameters)       │
+│    ├── simulated_mixed_200_provirus.tsv (provirus data)                      │
+│    ├── simulated_mixed_200_provirus.fna (provirus nucleotide sequences)      │
+│    ├── simulated_mixed_200_provirus_proteins.faa (provirus protein           │
+│    │   sequences)                                                            │
+│    ├── simulated_mixed_200_provirus_genes.tsv (provirus gene annotation      │
+│    │   data)                                                                 │
+│    ├── simulated_mixed_200_provirus_taxonomy.tsv (provirus taxonomic         │
+│    │   assignment)                                                           │
+│    ├── simulated_mixed_200_provirus_mmseqs2.tsv (MMseqs2 output file)        │
+│    └── simulated_mixed_200_provirus_aragorn.tsv (Aragorn output file)        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:14:46] Executing genomad find-proviruses.                                   
+[11:14:46] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_simulated/
+           simulated_mixed_200_find_proviruses directory.                       
+[11:14:48] Integrases identified with MMseqs2 and geNomad database (v1.9) were  
+           written to simulated_mixed_200_provirus_mmseqs2.tsv.                 
+[11:14:48] Deleting simulated_mixed_200_provirus_mmseqs2.                       
+[11:14:48] Deleting simulated_mixed_200_provirus_mmseqs2_input.faa.             
+[11:14:48] tRNAs identified with Aragorn were written to                        
+           simulated_mixed_200_provirus_aragorn.tsv.                            
+[11:14:48] Deleting simulated_mixed_200_provirus_aragorn_input.fna.             
+[11:14:49] Provirus regions identified.                                         
+[11:14:49] Provirus data was written to simulated_mixed_200_provirus.tsv.       
+[11:14:49] Provirus nucleotide sequences were written to                        
+           simulated_mixed_200_provirus.fna.                                    
+[11:14:49] Provirus protein sequences were written to                           
+           simulated_mixed_200_provirus_proteins.faa.                           
+[11:14:49] Provirus gene data was written to                                    
+           simulated_mixed_200_provirus_genes.tsv.                              
+[11:14:49] Taxonomic assignment data was written to                             
+           simulated_mixed_200_provirus_taxonomy.tsv.                           
+[11:14:49] geNomad find-proviruses finished!                                    

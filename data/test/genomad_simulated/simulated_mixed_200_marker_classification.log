@@ -1,0 +1,34 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad marker-classification (v1.11.2). This will classify the   │
+│  input sequences into chromosome, plasmid, or virus based on the presence    │
+│  of geNomad markers and other gene-related features.                         │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_simulated/sim  │
+│    ulated_mixed_200_marker_classification                                    │
+│    ├── simulated_mixed_200_marker_classification.json (execution             │
+│    │   parameters)                                                           │
+│    ├── simulated_mixed_200_features.tsv (sequence feature data: tabular      │
+│    │   format)                                                               │
+│    ├── simulated_mixed_200_features.npz (sequence feature data: binary       │
+│    │   format)                                                               │
+│    ├── simulated_mixed_200_marker_classification.tsv (sequence               │
+│    │   classification: tabular format)                                       │
+│    └── simulated_mixed_200_marker_classification.npz (sequence               │
+│        classification: binary format)                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:14:49] Executing genomad marker-classification.                             
+[11:14:49] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_simulated/
+           simulated_mixed_200_marker_classification directory.                 
+[11:14:49] Sequence features computed.                                          
+[11:14:49] Sequence features in binary format written to                        
+           simulated_mixed_200_features.npz.                                    
+[11:14:49] Sequence features in tabular format written to                       
+           simulated_mixed_200_features.tsv.                                    
+[11:14:49] Sequences classified.                                                
+[11:14:49] Sequence classification in binary format written to                  
+           simulated_mixed_200_marker_classification.npz.                       
+[11:14:49] Sequence classification in tabular format written to                 
+           simulated_mixed_200_marker_classification.tsv.                       
+[11:14:49] geNomad marker-classification finished!                              

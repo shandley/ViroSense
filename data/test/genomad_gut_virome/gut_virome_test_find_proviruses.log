@@ -1,0 +1,23 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad find-proviruses (v1.11.2). This will find putative        │
+│  proviral regions within the input sequences.                                │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome/gu  │
+│    t_virome_test_find_proviruses                                             │
+│    ├── gut_virome_test_find_proviruses.json (execution parameters)           │
+│    ├── gut_virome_test_provirus.tsv (provirus data)                          │
+│    ├── gut_virome_test_provirus.fna (provirus nucleotide sequences)          │
+│    ├── gut_virome_test_provirus_proteins.faa (provirus protein sequences)    │
+│    ├── gut_virome_test_provirus_genes.tsv (provirus gene annotation data)    │
+│    ├── gut_virome_test_provirus_taxonomy.tsv (provirus taxonomic             │
+│    │   assignment)                                                           │
+│    ├── gut_virome_test_provirus_mmseqs2.tsv (MMseqs2 output file)            │
+│    └── gut_virome_test_provirus_aragorn.tsv (Aragorn output file)            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:14:25] Executing genomad find-proviruses.                                   
+[11:14:25] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome
+           /gut_virome_test_find_proviruses directory.                          
+[11:14:26] No potential provirus-carrying sequences were identified.            
+[11:14:26] geNomad find-proviruses finished!                                    

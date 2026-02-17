@@ -1,0 +1,32 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad nn-classification (v1.11.2). This will classify the       │
+│  input sequences into chromosome, plasmid, or virus based on the nucleotide  │
+│  sequence.                                                                   │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome/gu  │
+│    t_virome_test_nn_classification                                           │
+│    ├── gut_virome_test_nn_classification.json (execution parameters)         │
+│    ├── gut_virome_test_encoded_sequences (directory containing encoded       │
+│    │   sequence data)                                                        │
+│    ├── gut_virome_test_nn_classification.tsv (contig classification:         │
+│    │   tabular format)                                                       │
+│    └── gut_virome_test_nn_classification.npz (contig classification: binary  │
+│        format)                                                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:15:16] Executing genomad nn-classification.                                 
+[11:15:16] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome
+           /gut_virome_test_nn_classification directory.                        
+[11:15:16] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome
+           /gut_virome_test_nn_classification/gut_virome_test_encoded_sequences 
+           directory.                                                           
+[11:15:17] Encoded sequence data written to gut_virome_test_encoded_sequences.  
+[11:15:25] Sequences classified.                                                
+[11:15:25] Sequence classification in binary format written to                  
+           gut_virome_test_nn_classification.npz.                               
+[11:15:25] Deleting encoded sequence data.                                      
+[11:15:25] Sequence classification in tabular format written to                 
+           gut_virome_test_nn_classification.tsv.                               
+[11:15:25] geNomad nn-classification finished!                                  

@@ -1,0 +1,7 @@
+{
+    "module": "aggregated_classification",
+    "input": "simulated_mixed_200.fasta",
+    "input_md5": "00b088bc4476e590a798906258c066ae",
+    "start_time": "2026-02-17T11:15:29.540056-06:00",
+    "parameters": {}
+}

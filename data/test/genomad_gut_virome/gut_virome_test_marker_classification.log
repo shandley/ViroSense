@@ -1,0 +1,31 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad marker-classification (v1.11.2). This will classify the   │
+│  input sequences into chromosome, plasmid, or virus based on the presence    │
+│  of geNomad markers and other gene-related features.                         │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome/gu  │
+│    t_virome_test_marker_classification                                       │
+│    ├── gut_virome_test_marker_classification.json (execution parameters)     │
+│    ├── gut_virome_test_features.tsv (sequence feature data: tabular format)  │
+│    ├── gut_virome_test_features.npz (sequence feature data: binary format)   │
+│    ├── gut_virome_test_marker_classification.tsv (sequence classification:   │
+│    │   tabular format)                                                       │
+│    └── gut_virome_test_marker_classification.npz (sequence classification:   │
+│        binary format)                                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:14:26] Executing genomad marker-classification.                             
+[11:14:26] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome
+           /gut_virome_test_marker_classification directory.                    
+[11:14:27] Sequence features computed.                                          
+[11:14:27] Sequence features in binary format written to                        
+           gut_virome_test_features.npz.                                        
+[11:14:27] Sequence features in tabular format written to                       
+           gut_virome_test_features.tsv.                                        
+[11:14:27] Sequences classified.                                                
+[11:14:27] Sequence classification in binary format written to                  
+           gut_virome_test_marker_classification.npz.                           
+[11:14:27] Sequence classification in tabular format written to                 
+           gut_virome_test_marker_classification.tsv.                           
+[11:14:27] geNomad marker-classification finished!                              

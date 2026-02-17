@@ -1,0 +1,27 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad annotate (v1.11.2). This will perform gene calling in     │
+│  the input sequences and annotate the predicted proteins with geNomad's      │
+│  markers.                                                                    │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_simulated/sim  │
+│    ulated_mixed_200_annotate                                                 │
+│    ├── simulated_mixed_200_annotate.json (execution parameters)              │
+│    ├── simulated_mixed_200_genes.tsv (gene annotation data)                  │
+│    ├── simulated_mixed_200_taxonomy.tsv (taxonomic assignment)               │
+│    ├── simulated_mixed_200_mmseqs2.tsv (MMseqs2 output file)                 │
+│    └── simulated_mixed_200_proteins.faa (protein FASTA file)                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:10:30] Executing genomad annotate.                                          
+[11:10:30] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_simulated/
+           simulated_mixed_200_annotate directory.                              
+[11:10:41] Proteins predicted with pyrodigal-gv were written to                 
+           simulated_mixed_200_proteins.faa.                                    
+[11:14:45] Proteins annotated with MMseqs2 and geNomad database (v1.9) were     
+           written to simulated_mixed_200_mmseqs2.tsv.                          
+[11:14:45] Deleting simulated_mixed_200_mmseqs2.                                
+[11:14:46] Gene data was written to simulated_mixed_200_genes.tsv.              
+[11:14:46] Taxonomic assignment data was written to                             
+           simulated_mixed_200_taxonomy.tsv.                                    
+[11:14:46] geNomad annotate finished!                                           

@@ -1,0 +1,10 @@
+gene	start	end	length	strand	gc_content	genetic_code	rbs_motif	marker	evalue	bitscore	uscg	plasmid_hallmark	virus_hallmark	taxid	taxname	annotation_conjscan	annotation_amr	annotation_accessions	annotation_description
+k141_20_1	2	478	477	-1	0.491	11	AGGAG/GGAGG	GENOMAD.222910.PV	2.09e-05	46	0	1	0	1	NA	MOBP1	NA	PF03432;COG3843	Relaxase/Mobilisation nuclease domain
+k141_20_2	439	783	345	-1	0.383	11	GGA/GAG/AGG	GENOMAD.068213.PP	3.932e-11	61	0	1	0	1	NA	NA	NA	PF07328;COG4453	T-DNA border endonuclease VirD1
+k141_20_3	890	952	63	1	0.365	11	GGA/GAG/AGG	NA	NA	NA	0	0	0	1	NA	NA	NA	NA	NA
+k141_96_1	35	1057	1023	-1	0.435	11	None	GENOMAD.151095.PV	1.056e-28	121	0	1	0	1246	Caudoviricetes	NA	NA	PF01076	Plasmid recombination enzyme
+k141_127_1	2	238	237	-1	0.506	11	None	NA	NA	NA	0	0	0	1	NA	NA	NA	NA	NA
+k141_127_2	235	534	300	-1	0.543	11	None	GENOMAD.100213.PP	2.143e-58	196	0	1	0	1	NA	NA	NA	PF19514;COG4453	MobC-like protein
+k141_127_3	727	924	198	-1	0.475	11	None	GENOMAD.063185.PP	3.768e-36	130	0	0	0	1	NA	NA	NA	NA	NA
+k141_127_4	935	1207	273	-1	0.451	11	None	NA	NA	NA	0	0	0	1	NA	NA	NA	NA	NA
+k141_127_5	1207	1413	207	-1	0.435	11	None	NA	NA	NA	0	0	0	1	NA	NA	NA	NA	NA

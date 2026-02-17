@@ -1,0 +1,38 @@
+{
+  "tools": {
+    "virosense": "v0.1.0 (Evo2 NIM backend, default threshold 0.5)",
+    "genomad": "v1.11.2 (database v1.9, default threshold 0.7)"
+  },
+  "simulated_benchmark": {
+    "virosense": {
+      "accuracy": 0.96,
+      "precision": 0.951,
+      "recall": 0.97,
+      "f1": 0.9604,
+      "tp": 97,
+      "fp": 5,
+      "tn": 95,
+      "fn": 3
+    },
+    "genomad": {
+      "accuracy": 0.84,
+      "precision": 0.9595,
+      "recall": 0.71,
+      "f1": 0.8161,
+      "tp": 71,
+      "fp": 3,
+      "tn": 97,
+      "fn": 29
+    }
+  },
+  "gut_virome": {
+    "checkv_confirmed": 73,
+    "virosense_sensitivity": 0.9863013698630136,
+    "genomad_sensitivity": 0.4794520547945205,
+    "virosense_viral": 89,
+    "genomad_viral": 36,
+    "both_viral": 34,
+    "virosense_only": 55,
+    "genomad_only": 2
+  }
+}

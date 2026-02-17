@@ -1,0 +1,27 @@
+╭──────────────────────────────────────────────────────────────────────────────╮
+│  Executing geNomad annotate (v1.11.2). This will perform gene calling in     │
+│  the input sequences and annotate the predicted proteins with geNomad's      │
+│  markers.                                                                    │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│  Outputs:                                                                    │
+│    /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome/gu  │
+│    t_virome_test_annotate                                                    │
+│    ├── gut_virome_test_annotate.json (execution parameters)                  │
+│    ├── gut_virome_test_genes.tsv (gene annotation data)                      │
+│    ├── gut_virome_test_taxonomy.tsv (taxonomic assignment)                   │
+│    ├── gut_virome_test_mmseqs2.tsv (MMseqs2 output file)                     │
+│    └── gut_virome_test_proteins.faa (protein FASTA file)                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+[11:10:19] Executing genomad annotate.                                          
+[11:10:19] Creating the                                                         
+           /Users/scotthandley/Code/tools/ViroSense/data/test/genomad_gut_virome
+           /gut_virome_test_annotate directory.                                 
+[11:10:27] Proteins predicted with pyrodigal-gv were written to                 
+           gut_virome_test_proteins.faa.                                        
+[11:14:23] Proteins annotated with MMseqs2 and geNomad database (v1.9) were     
+           written to gut_virome_test_mmseqs2.tsv.                              
+[11:14:23] Deleting gut_virome_test_mmseqs2.                                    
+[11:14:24] Gene data was written to gut_virome_test_genes.tsv.                  
+[11:14:24] Taxonomic assignment data was written to                             
+           gut_virome_test_taxonomy.tsv.                                        
+[11:14:25] geNomad annotate finished!                                           

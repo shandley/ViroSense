@@ -1,0 +1,7 @@
+{
+    "module": "marker_classification",
+    "input": "gut_virome_test.fasta",
+    "input_md5": "84f4fc9e3d946036d5dea6ef48471d70",
+    "start_time": "2026-02-17T11:14:26.225364-06:00",
+    "parameters": {}
+}

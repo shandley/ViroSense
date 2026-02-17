@@ -1,0 +1,18 @@
+{
+    "module": "summary",
+    "input": "gut_virome_test.fasta",
+    "input_md5": "84f4fc9e3d946036d5dea6ef48471d70",
+    "start_time": "2026-02-17T11:15:25.972101-06:00",
+    "parameters": {
+        "min_score": 0.7,
+        "max_fdr": 0.1,
+        "min_number_genes": 1,
+        "min_plasmid_hallmarks": 0,
+        "min_plasmid_hallmarks_short_seqs": 1,
+        "min_virus_hallmarks": 0,
+        "min_virus_hallmarks_short_seqs": 1,
+        "min_plasmid_marker_enrichment": 0.1,
+        "min_virus_marker_enrichment": 0.0,
+        "max_uscg": 4
+    }
+}
