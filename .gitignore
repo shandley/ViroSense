@@ -32,6 +32,10 @@ data/test/simulated_bacterial.fasta
 data/test/set5_gut_virome.tar.gz
 data/test/set5_gut_virome_dataset/
 data/test/cache/
+data/test/prophage_test/NZ_*.fasta
+data/test/prophage_test/prophage_regions_200kb.fasta
+data/test/prophage_test/cache*/
+data/test/prophage_test/results/
 
 .DS_Store
 *.swp

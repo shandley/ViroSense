@@ -1,0 +1,43 @@
+{
+  "n_chromosomes": 2,
+  "total_bp": 100000,
+  "n_windows": 48,
+  "n_viral_windows": 28,
+  "n_regions": 3,
+  "regions": [
+    {
+      "region_id": "prophage_0",
+      "chromosome_id": "NZ_AP023299.1_1246000_1296000",
+      "start": 0,
+      "end": 11000,
+      "length": 11000,
+      "mean_score": 0.9882,
+      "max_score": 0.9992
+    },
+    {
+      "region_id": "prophage_1",
+      "chromosome_id": "NZ_AP023299.1_1246000_1296000",
+      "start": 18000,
+      "end": 37000,
+      "length": 19000,
+      "mean_score": 0.91,
+      "max_score": 0.9999
+    },
+    {
+      "region_id": "prophage_2",
+      "chromosome_id": "NZ_CP077331.1_1466000_1516000",
+      "start": 0,
+      "end": 41000,
+      "length": 41000,
+      "mean_score": 0.9623,
+      "max_score": 1.0
+    }
+  ],
+  "parameters": {
+    "window_size": 5000,
+    "step_size": 2000,
+    "threshold": 0.5,
+    "min_region_length": 5000,
+    "merge_gap": 3000
+  }
+}
