@@ -16,12 +16,13 @@ Evo2 requires NVIDIA GPU (H100/Ada+ with CUDA 12.1+ and FP8). Developer machine 
 
 ## Architecture
 
-### Four Modules
+### Five Modules
 
 1. **detect** — Classify metagenomic contigs as viral vs cellular using Evo2 DNA embeddings
 2. **context** — Enhance ORF annotation with genomic context (Evo2 windows + vHold merge)
 3. **cluster** — Organize viral dark matter using fused DNA + protein embeddings
 4. **classify** — Train discriminative classifiers on frozen Evo2 embeddings
+5. **prophage** — Sliding-window scan of bacterial chromosomes for integrated prophage regions
 
 ### Backend Abstraction
 
@@ -48,6 +49,7 @@ virosense detect -i contigs.fasta -o results/ --backend nim
 virosense context -i viral.fasta --orfs orfs.gff3 -o results/
 virosense cluster -i unknown.fasta -o clusters/ --mode multi
 virosense classify -i seqs.fasta --labels labels.tsv -o model/
+virosense prophage -i chromosome.fasta -o results/ --window-size 5000 --step-size 2000
 virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --install
 ```
 
@@ -107,6 +109,17 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - Supports multi-class classification with string label encoding
 - 6 tests
 
+### Phase 9: prophage detection — COMPLETE
+- `models/prophage.py` with `generate_windows()`, `score_windows()`, `merge_prophage_regions()`
+- Sliding window approach: configurable window_size, step_size, merge_gap, min_region_length
+- Auto-clamps window_size to backend `max_context_length()` (16,000 bp for NIM)
+- Outputs: `prophage_windows.tsv`, `prophage_regions.tsv`, `prophage_regions.bed`, `prophage_summary.json`
+- BED output for genome browser visualization (IGV, UCSC)
+- Reuses `_load_classifier` from detect module, `extract_embeddings` with caching
+- Validated on Salmonella enterica (2 prophage regions: 11 kb + 19 kb) and Lelliottia amnigena (1 region: 41 kb)
+- Sharp boundary detection: scores transition 0.99→0.00 within a single window step
+- 21 tests, 154 total passing
+
 ## Environment Variables
 
 | Variable | Purpose |
@@ -119,7 +132,7 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 
 | File | Purpose |
 |------|---------|
-| `src/virosense/cli.py` | Click CLI with 5 subcommands |
+| `src/virosense/cli.py` | Click CLI with 6 subcommands |
 | `src/virosense/backends/base.py` | Evo2Backend ABC + factory |
 | `src/virosense/backends/nim.py` | NIM API client (production default) |
 | `src/virosense/features/evo2_embeddings.py` | Embedding extraction + incremental NPZ cache |
@@ -129,8 +142,10 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 | `src/virosense/models/training.py` | Training loop + evaluation metrics |
 | `src/virosense/io/fasta.py` | DNA FASTA I/O |
 | `src/virosense/io/orfs.py` | ORF parser (GFF3/prodigal/FASTA) |
-| `src/virosense/io/results.py` | TSV/JSON result writers |
+| `src/virosense/io/results.py` | TSV/JSON/BED result writers |
+| `src/virosense/models/prophage.py` | Prophage window generation, scoring, region merging |
 | `src/virosense/subcommands/detect.py` | Viral detection pipeline |
+| `src/virosense/subcommands/prophage.py` | Prophage detection pipeline |
 | `src/virosense/subcommands/context.py` | ORF context annotation pipeline |
 | `src/virosense/subcommands/cluster.py` | Sequence clustering pipeline |
 | `src/virosense/subcommands/classify.py` | Classifier training/prediction pipeline |
@@ -177,12 +192,52 @@ ViroSense's composition-based approach detects viral sequences that gene-depende
 | `scripts/compare_genomad.py` | Head-to-head ViroSense vs geNomad comparison |
 | `scripts/analyze_clusters.py` | PCA + HDBSCAN clustering with taxonomy cross-reference |
 
+## Performance / Speed
+
+### Current Bottleneck
+NIM cloud API: ~27s per sequence (Evo2 40B inference). Serial requests at ~2 seq/min.
+The 40 RPM rate limit allows up to ~13 concurrent requests (since each takes 27s).
+
+### Speed Optimization Plan (next priority)
+
+**Phase A — Immediate (NIM async concurrency):**
+- Replace serial loop in `NIMBackend.extract_embeddings()` with `httpx.AsyncClient` + `asyncio.gather()`
+- Semaphore-controlled concurrency (start with 5-10 concurrent)
+- Expected: 5-10x speedup, no new infrastructure
+- Add `--nim-url` flag for self-hosted NIM containers
+
+**Phase B — Modal backend implementation:**
+- Serverless A100/H100 via Modal.com Python SDK
+- True batch inference (4-8 sequences per GPU invocation)
+- Per-second billing: ~$0.87 for a full 5Mb chromosome scan
+- Expected: 20 min for a full chromosome vs 20 hours on NIM serial
+
+**Phase C — Algorithmic optimizations:**
+- Adaptive prophage scanning: coarse pass (15kb windows) → fine pass on hits only
+- K-mer pre-filtering for detect: skip obviously bacterial contigs
+- Larger windows (10-15 kb) where resolution permits
+
+### Self-hosted NIM
+Docker: `nvcr.io/nim/arc/evo2:2` — same HTTP API as cloud, no rate limits.
+- 7B model: single H100 (80GB), ~45 nt/s generation, ~1-3s forward pass
+- 40B model: 2x H100 or 1x H200, ~26 nt/s
+- Point existing NIMBackend at `localhost:8000` via `--nim-url`
+
+### Benchmark Numbers (NVIDIA official)
+| Model | GPU | Throughput |
+|-------|-----|------------|
+| 40B | 2x H100 80GB | 26 nt/sec |
+| 40B | 1x H200 141GB | 33 nt/sec |
+| 7B | 1x H100 80GB | 45 nt/sec |
+| 7B | 1x H200 141GB | 52 nt/sec |
+
 ## Future Work / Notes
 
-- **Prophage detection mode**: Sliding-window scan of bacterial chromosomes for integrated prophage
 - **UHGV** (Unified Human Gut Virome Catalog): 873K virus genomes / 168K vOTUs. Potential benchmarking resource.
 - **Multi-modal detection**: Fuse DNA + protein embeddings for improved precision
-- **Modal backend**: Serverless GPU for production-scale processing
+- **Prophage benchmark**: Validate against PHASTER/PhiSpy on curated prophage datasets
+- **Calibration**: Platt scaling for well-calibrated confidence scores
+- **Methods paper**: Novel DNA foundation model approach to viral detection
 
 ## Biosecurity Note
 
