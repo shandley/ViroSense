@@ -34,6 +34,7 @@ def run_context(
     threads: int = 4,
     layer: str = "blocks.28.mlp.l3",
     cache_dir: str | None = None,
+    nim_url: str | None = None,
 ) -> None:
     """Run genomic context annotation pipeline.
 
@@ -81,7 +82,7 @@ def run_context(
     logger.info(f"Extracted {len(windows)} genomic windows")
 
     # 3. Get Evo2 embeddings for windows
-    evo2_backend = get_backend(backend, model=model)
+    evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

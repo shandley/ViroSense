@@ -21,6 +21,7 @@ def run_build_reference(
     install: bool = False,
     batch_size: int = 16,
     cache_dir: str | None = None,
+    nim_url: str | None = None,
 ) -> None:
     """Build a reference viral classifier from labeled sequences.
 
@@ -79,7 +80,7 @@ def run_build_reference(
     )
 
     # 2. Extract embeddings
-    evo2_backend = get_backend(backend, model=model)
+    evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

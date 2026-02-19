@@ -16,6 +16,7 @@ def run_detect(
     threads: int = 4,
     layer: str = "blocks.28.mlp.l3",
     cache_dir: str | None = None,
+    nim_url: str | None = None,
 ) -> None:
     """Run viral detection pipeline.
 
@@ -53,7 +54,7 @@ def run_detect(
     classifier = _load_classifier(None)
 
     # 3. Get backend and extract embeddings
-    evo2_backend = get_backend(backend, api_key=None, model=model)
+    evo2_backend = get_backend(backend, api_key=None, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

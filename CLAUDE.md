@@ -1,6 +1,6 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-02-17
+Last updated: 2026-02-19
 
 ## Project Overview
 
@@ -28,7 +28,8 @@ Evo2 requires NVIDIA GPU (H100/Ada+ with CUDA 12.1+ and FP8). Developer machine 
 
 ```
 Evo2Backend (ABC)
-├── NIMBackend   — NVIDIA NIM API (default, works anywhere, needs NVIDIA_API_KEY)
+├── NIMBackend   — NVIDIA NIM API (default, async concurrent, needs NVIDIA_API_KEY)
+│                  Supports cloud API and self-hosted via --nim-url
 ├── LocalBackend — Direct evo2 package (needs CUDA H100/Ada GPU)
 └── ModalBackend — Modal.com serverless GPU (stub)
 ```
@@ -61,14 +62,16 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - I/O: FASTA reader, ORF parser, TSV/JSON result writers
 
 ### Phase 2: Backend Layer — COMPLETE
-- NIM API client (`backends/nim.py`) with httpx
+- NIM API client (`backends/nim.py`) with async concurrent httpx
+- Async concurrency: `asyncio.gather()` + `asyncio.Semaphore(10)` for 5-10x throughput
+- Self-hosted NIM support: `--nim-url` flag on all commands (unlimited concurrency)
 - Layer name translation: `blocks.[n].*` (native) ↔ NIM format in `utils/constants.py`
 - Per-sequence HTTP calls with base64 NPZ decoding and mean-pooling
 - Handles dual NIM response: 200 JSON (short seqs) and 302 S3 redirect (long seqs)
 - Retry logic with exponential backoff for 429/503 and `httpx.TransportError` (5 attempts)
 - Sequence validation (16,000 bp max), N-base sanitization
 - Local/Modal backends remain as stubs (NIM is default and production-ready)
-- 28 mocked HTTP tests
+- 43 mocked async HTTP tests (including constructor, concurrency, retry logic)
 
 ### Phase 3: Embedding Infrastructure — COMPLETE
 - `features/evo2_embeddings.py` with incremental checkpointing (saves every 50 sequences)
@@ -118,7 +121,7 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - Reuses `_load_classifier` from detect module, `extract_embeddings` with caching
 - Validated on Salmonella enterica (2 prophage regions: 11 kb + 19 kb) and Lelliottia amnigena (1 region: 41 kb)
 - Sharp boundary detection: scores transition 0.99→0.00 within a single window step
-- 21 tests, 154 total passing
+- 21 tests, 159 total passing
 
 ## Environment Variables
 
@@ -194,17 +197,18 @@ ViroSense's composition-based approach detects viral sequences that gene-depende
 
 ## Performance / Speed
 
-### Current Bottleneck
-NIM cloud API: ~27s per sequence (Evo2 40B inference). Serial requests at ~2 seq/min.
+### Current State
+NIM cloud API: ~27s per sequence (Evo2 40B inference), now with async concurrent requests.
 The 40 RPM rate limit allows up to ~13 concurrent requests (since each takes 27s).
 
-### Speed Optimization Plan (next priority)
+### Phase A — NIM Async Concurrency — COMPLETE
+- `NIMBackend` uses `httpx.AsyncClient` + `asyncio.gather()` + `asyncio.Semaphore(10)`
+- 10 concurrent requests (conservative; 40 RPM limit allows ~18)
+- Self-hosted NIM: unlimited concurrency via `--nim-url` flag on all commands
+- Expected: 5-10x speedup on cloud, no rate-limit overhead on self-hosted
+- Removed serial `time.sleep()` between requests
 
-**Phase A — Immediate (NIM async concurrency):**
-- Replace serial loop in `NIMBackend.extract_embeddings()` with `httpx.AsyncClient` + `asyncio.gather()`
-- Semaphore-controlled concurrency (start with 5-10 concurrent)
-- Expected: 5-10x speedup, no new infrastructure
-- Add `--nim-url` flag for self-hosted NIM containers
+### Speed Optimization Plan (remaining)
 
 **Phase B — Modal backend implementation:**
 - Serverless A100/H100 via Modal.com Python SDK

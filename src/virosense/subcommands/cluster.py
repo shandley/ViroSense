@@ -20,6 +20,7 @@ def run_cluster(
     layer: str = "blocks.28.mlp.l3",
     cache_dir: str | None = None,
     pca_dims: int | None = 0,
+    nim_url: str | None = None,
 ) -> None:
     """Run multi-modal clustering pipeline.
 
@@ -53,7 +54,7 @@ def run_cluster(
         return
 
     # 2. Extract DNA embeddings
-    evo2_backend = get_backend(backend, api_key=None, model=model)
+    evo2_backend = get_backend(backend, api_key=None, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

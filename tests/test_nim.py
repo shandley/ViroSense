@@ -2,7 +2,7 @@
 
 import base64
 import io
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -10,6 +10,7 @@ import pytest
 from virosense.backends.base import EmbeddingRequest
 from virosense.backends.nim import NIMBackend
 from virosense.utils.constants import (
+    NIM_MAX_CONCURRENT,
     NIM_MAX_SEQUENCE_LENGTH,
     translate_layer_to_nim,
     translate_layer_to_native,
@@ -39,6 +40,22 @@ def make_httpx_response(status_code: int, json_data=None, text="", headers=None)
     if json_data is not None:
         resp.json.return_value = json_data
     return resp
+
+
+def make_async_client(responses):
+    """Create a mock httpx.AsyncClient for async tests.
+
+    Args:
+        responses: A single mock response or list for sequential post() calls.
+    """
+    mock_client = AsyncMock()
+    # Ensure `async with AsyncClient() as client:` yields mock_client itself
+    mock_client.__aenter__.return_value = mock_client
+    if isinstance(responses, list):
+        mock_client.post = AsyncMock(side_effect=responses)
+    else:
+        mock_client.post = AsyncMock(return_value=responses)
+    return mock_client
 
 
 # --- Layer name translation tests ---
@@ -144,7 +161,7 @@ class TestResponseDecoding:
             backend._decode_response(response_data, layer, "seq_1")
 
 
-# --- Full extract_embeddings tests (mocked HTTP) ---
+# --- Layer remapping tests ---
 
 
 class TestLayerRemapping:
@@ -172,21 +189,16 @@ class TestLayerRemapping:
     def test_block_25_falls_back(self):
         assert NIMBackend._resolve_layer("blocks.25.mlp.l3") == "blocks.20.mlp.l3"
 
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_remapping_used_in_api_request(self, mock_sleep):
         """Verify remapped layer is sent to the API and used for response decoding."""
         backend = NIMBackend(api_key="test_key")
-        # Mock response uses the remapped layer name
         remapped_layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(remapped_layer, seq_len=100)
         mock_response = make_httpx_response(200, json_data=response_data)
+        mock_client = make_async_client(mock_response)
 
-        mock_client = MagicMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"seq_1": "ATGCATGC"},
                 layer="blocks.28.mlp.l3",  # 7B default — should be remapped
@@ -201,20 +213,19 @@ class TestLayerRemapping:
         assert call_kwargs[1]["json"]["output_layers"] == [remapped_layer]
 
 
+# --- Full extract_embeddings tests (mocked async HTTP) ---
+
+
 class TestExtractEmbeddings:
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_single_sequence(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=100)
         mock_response = make_httpx_response(200, json_data=response_data)
+        mock_client = make_async_client(mock_response)
 
-        mock_client = MagicMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"seq_1": "ATGCATGC"},
                 layer="blocks.20.mlp.l3",
@@ -229,19 +240,15 @@ class TestExtractEmbeddings:
         call_kwargs = mock_client.post.call_args
         assert call_kwargs[1]["json"]["output_layers"] == [layer]
 
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_multiple_sequences(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         layer = "blocks.20.mlp.l3"
         response_data, _ = make_mock_npz_response(layer, seq_len=50)
         mock_response = make_httpx_response(200, json_data=response_data)
+        mock_client = make_async_client(mock_response)
 
-        mock_client = MagicMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC", "s2": "GCTA", "s3": "TTTT"},
                 layer="blocks.20.mlp.l3",
@@ -251,8 +258,8 @@ class TestExtractEmbeddings:
         assert result.sequence_ids == ["s1", "s2", "s3"]
         assert result.embeddings.shape == (3, 4096)
         assert mock_client.post.call_count == 3
-        # Rate limiting sleep between requests (not after last)
-        assert mock_sleep.call_count == 2
+        # Async: no sleeps between successful requests (concurrency via semaphore)
+        mock_sleep.assert_not_called()
 
     def test_no_api_key_raises(self):
         backend = NIMBackend(api_key=None)
@@ -273,7 +280,7 @@ class TestExtractEmbeddings:
 
 
 class TestRetryLogic:
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_429_retry_then_success(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         layer = "blocks.20.mlp.l3"
@@ -281,13 +288,9 @@ class TestRetryLogic:
 
         rate_limited = make_httpx_response(429, text="Rate limited")
         success = make_httpx_response(200, json_data=response_data)
+        mock_client = make_async_client([rate_limited, success])
 
-        mock_client = MagicMock()
-        mock_client.post.side_effect = [rate_limited, success]
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
                 layer="blocks.20.mlp.l3",
@@ -297,7 +300,7 @@ class TestRetryLogic:
         assert result.sequence_ids == ["s1"]
         assert mock_client.post.call_count == 2
 
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_503_retry_then_success(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         layer = "blocks.20.mlp.l3"
@@ -305,13 +308,9 @@ class TestRetryLogic:
 
         unavailable = make_httpx_response(503, text="Model not ready")
         success = make_httpx_response(200, json_data=response_data)
+        mock_client = make_async_client([unavailable, success])
 
-        mock_client = MagicMock()
-        mock_client.post.side_effect = [unavailable, success]
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
                 layer="blocks.20.mlp.l3",
@@ -320,17 +319,13 @@ class TestRetryLogic:
 
         assert result.sequence_ids == ["s1"]
 
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_429_exhausts_retries(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         rate_limited = make_httpx_response(429, text="Rate limited")
+        mock_client = make_async_client(rate_limited)
 
-        mock_client = MagicMock()
-        mock_client.post.return_value = rate_limited
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
                 layer="blocks.20.mlp.l3",
@@ -338,17 +333,13 @@ class TestRetryLogic:
             with pytest.raises(RuntimeError, match="after 5 retries"):
                 backend.extract_embeddings(request)
 
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_422_raises_immediately(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         rejected = make_httpx_response(422, text="Sequence too long")
+        mock_client = make_async_client(rejected)
 
-        mock_client = MagicMock()
-        mock_client.post.return_value = rejected
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
                 layer="blocks.20.mlp.l3",
@@ -359,17 +350,13 @@ class TestRetryLogic:
         # 422 should not retry
         assert mock_client.post.call_count == 1
 
-    @patch("virosense.backends.nim.time.sleep")
+    @patch("virosense.backends.nim.asyncio.sleep", new_callable=AsyncMock)
     def test_unexpected_error_raises_immediately(self, mock_sleep):
         backend = NIMBackend(api_key="test_key")
         error = make_httpx_response(500, text="Internal server error")
+        mock_client = make_async_client(error)
 
-        mock_client = MagicMock()
-        mock_client.post.return_value = error
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             request = EmbeddingRequest(
                 sequences={"s1": "ATGC"},
                 layer="blocks.20.mlp.l3",
@@ -380,7 +367,7 @@ class TestRetryLogic:
         assert mock_client.post.call_count == 1
 
 
-# --- Backend property tests ---
+# --- Backend property and constructor tests ---
 
 
 class TestBackendProperties:
@@ -395,3 +382,31 @@ class TestBackendProperties:
     def test_unavailable_without_key(self):
         backend = NIMBackend(api_key=None)
         assert backend.is_available() is False
+
+
+class TestConstructor:
+    """Test NIMBackend constructor with new nim_url and max_concurrent params."""
+
+    def test_default_cloud_concurrency(self):
+        backend = NIMBackend(api_key="test")
+        assert backend._max_concurrent == NIM_MAX_CONCURRENT
+
+    def test_custom_url_unlimited_concurrency(self):
+        backend = NIMBackend(api_key="test", nim_url="http://localhost:8000")
+        assert backend._max_concurrent == 0
+        assert backend._custom_url is True
+
+    def test_custom_url_sets_base_url(self):
+        backend = NIMBackend(api_key="test", nim_url="http://gpu-server:8000/v1/")
+        assert backend._base_url == "http://gpu-server:8000/v1"
+
+    def test_custom_max_concurrent(self):
+        backend = NIMBackend(api_key="test", max_concurrent=20)
+        assert backend._max_concurrent == 20
+
+    def test_custom_url_with_explicit_concurrency(self):
+        backend = NIMBackend(
+            api_key="test", nim_url="http://localhost:8000", max_concurrent=5
+        )
+        assert backend._max_concurrent == 5
+        assert backend._custom_url is True

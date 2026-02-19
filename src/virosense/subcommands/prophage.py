@@ -19,6 +19,7 @@ def run_prophage(
     layer: str = "blocks.28.mlp.l3",
     cache_dir: str | None = None,
     classifier_model: str | None = None,
+    nim_url: str | None = None,
 ) -> None:
     """Run prophage detection pipeline.
 
@@ -63,7 +64,7 @@ def run_prophage(
     )
 
     # 2. Clamp window size to backend limit
-    evo2_backend = get_backend(backend, api_key=None, model=model)
+    evo2_backend = get_backend(backend, api_key=None, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

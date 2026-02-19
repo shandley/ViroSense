@@ -49,14 +49,21 @@ class Evo2Backend(ABC):
 
 def get_backend(name: str, **kwargs) -> Evo2Backend:
     """Factory function to get an Evo2 backend by name."""
+    # NIM-specific kwargs that other backends don't accept
+    _nim_only = ("nim_url", "max_concurrent")
+
     if name == "nim":
         from virosense.backends.nim import NIMBackend
         return NIMBackend(**kwargs)
     elif name == "local":
         from virosense.backends.local import LocalBackend
+        for k in _nim_only:
+            kwargs.pop(k, None)
         return LocalBackend(**kwargs)
     elif name == "modal":
         from virosense.backends.modal import ModalBackend
+        for k in _nim_only:
+            kwargs.pop(k, None)
         return ModalBackend(**kwargs)
     else:
         raise ValueError(f"Unknown backend: {name}. Choose from: nim, local, modal")

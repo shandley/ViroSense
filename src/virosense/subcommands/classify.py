@@ -31,6 +31,7 @@ def run_classify(
     classifier_model_path: str | None = None,
     layer: str = "blocks.28.mlp.l3",
     cache_dir: str | None = None,
+    nim_url: str | None = None,
 ) -> None:
     """Run discriminative classifier pipeline.
 
@@ -61,6 +62,7 @@ def run_classify(
             model=model,
             layer=layer,
             cache_dir=cache_dir,
+            nim_url=nim_url,
         )
     else:
         _run_training(
@@ -75,6 +77,7 @@ def run_classify(
             val_split=val_split,
             layer=layer,
             cache_dir=cache_dir,
+            nim_url=nim_url,
         )
 
 
@@ -90,6 +93,7 @@ def _run_training(
     val_split: float,
     layer: str,
     cache_dir: str | None,
+    nim_url: str | None = None,
 ) -> None:
     """Train a classifier on labeled sequences."""
     from virosense.backends.base import get_backend
@@ -151,7 +155,7 @@ def _run_training(
     )
 
     # 2. Extract embeddings
-    evo2_backend = get_backend(backend, model=model)
+    evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "
@@ -198,6 +202,7 @@ def _run_prediction(
     model: str,
     layer: str,
     cache_dir: str | None,
+    nim_url: str | None = None,
 ) -> None:
     """Load a trained classifier and predict on new sequences."""
     from virosense.backends.base import get_backend
@@ -219,7 +224,7 @@ def _run_prediction(
         logger.warning("No sequences found in prediction file.")
         return
 
-    evo2_backend = get_backend(backend, model=model)
+    evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

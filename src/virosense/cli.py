@@ -38,8 +38,10 @@ def main():
               help="Evo2 layer for embedding extraction")
 @click.option("--cache-dir", type=click.Path(), default=None,
               help="Directory to cache embeddings")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
 def detect(input_file, output, backend, model, threshold,
-           min_length, batch_size, threads, layer, cache_dir):
+           min_length, batch_size, threads, layer, cache_dir, nim_url):
     """Detect viral sequences in metagenomic contigs.
 
     Uses Evo2 DNA embeddings to classify contigs as viral or cellular.
@@ -56,6 +58,7 @@ def detect(input_file, output, backend, model, threshold,
         threads=threads,
         layer=layer,
         cache_dir=cache_dir,
+        nim_url=nim_url,
     )
 
 
@@ -81,8 +84,10 @@ def detect(input_file, output, backend, model, threshold,
               help="Evo2 layer for embedding extraction")
 @click.option("--cache-dir", type=click.Path(), default=None,
               help="Directory to cache embeddings")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
 def context(input_file, orfs, output, backend, model, window,
-            vhold_output, threads, layer, cache_dir):
+            vhold_output, threads, layer, cache_dir, nim_url):
     """Annotate ORFs with genomic context from Evo2 embeddings.
 
     Combines DNA-level context (Evo2) with protein-level annotation (vHold)
@@ -100,6 +105,7 @@ def context(input_file, orfs, output, backend, model, window,
         threads=threads,
         layer=layer,
         cache_dir=cache_dir,
+        nim_url=nim_url,
     )
 
 
@@ -133,9 +139,11 @@ def context(input_file, orfs, output, backend, model, window,
               help="Directory to cache embeddings")
 @click.option("--pca-dims", default=0, type=int,
               help="PCA dimensions before clustering (0=auto 90pct variance, -1=disable)")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
 def cluster(input_file, output, backend, model, mode, algorithm,
             min_cluster_size, n_clusters, threads, vhold_embeddings,
-            layer, cache_dir, pca_dims):
+            layer, cache_dir, pca_dims, nim_url):
     """Cluster unclassified viral sequences using multi-modal embeddings.
 
     Combines DNA (Evo2) and protein (ProstT5) embeddings to organize
@@ -156,6 +164,7 @@ def cluster(input_file, output, backend, model, mode, algorithm,
         layer=layer,
         cache_dir=cache_dir,
         pca_dims=None if pca_dims < 0 else pca_dims,
+        nim_url=nim_url,
     )
 
 
@@ -188,9 +197,11 @@ def cluster(input_file, output, backend, model, mode, algorithm,
               help="Evo2 layer for embedding extraction")
 @click.option("--cache-dir", type=click.Path(), default=None,
               help="Directory to cache embeddings")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
 def classify(input_file, labels, output, backend, model, task,
              epochs, lr, val_split, predict, classifier_model,
-             layer, cache_dir):
+             layer, cache_dir, nim_url):
     """Train or apply a discriminative viral classifier on Evo2 embeddings.
 
     Trains a classification head on frozen Evo2 embeddings to predict
@@ -211,6 +222,7 @@ def classify(input_file, labels, output, backend, model, task,
         classifier_model_path=classifier_model,
         layer=layer,
         cache_dir=cache_dir,
+        nim_url=nim_url,
     )
 
 
@@ -243,9 +255,11 @@ def classify(input_file, labels, output, backend, model, task,
 @click.option("--classifier-model", type=click.Path(exists=True),
               default=None,
               help="Pre-trained classifier model (default: reference model)")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
 def prophage(input_file, output, backend, model, threshold,
              window_size, step_size, min_region_length, merge_gap,
-             batch_size, layer, cache_dir, classifier_model):
+             batch_size, layer, cache_dir, classifier_model, nim_url):
     """Detect prophage regions in bacterial chromosomes.
 
     Scans input sequences with a sliding window, scores each window
@@ -267,6 +281,7 @@ def prophage(input_file, output, backend, model, threshold,
         layer=layer,
         cache_dir=cache_dir,
         classifier_model=classifier_model,
+        nim_url=nim_url,
     )
 
 
@@ -296,8 +311,11 @@ def prophage(input_file, output, backend, model, threshold,
               help="Batch size for embedding extraction (default: 16)")
 @click.option("--cache-dir", type=click.Path(), default=None,
               help="Directory to cache embeddings")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
 def build_reference(input_file, labels, output, backend, model, layer,
-                    epochs, lr, val_split, install, batch_size, cache_dir):
+                    epochs, lr, val_split, install, batch_size, cache_dir,
+                    nim_url):
     """Build a reference classifier for viral detection.
 
     Takes a FASTA file of labeled viral and cellular sequences plus a
@@ -320,4 +338,5 @@ def build_reference(input_file, labels, output, backend, model, layer,
         install=install,
         batch_size=batch_size,
         cache_dir=cache_dir,
+        nim_url=nim_url,
     )

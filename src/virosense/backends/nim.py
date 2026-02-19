@@ -1,10 +1,10 @@
 """NVIDIA NIM API backend for Evo2 inference."""
 
+import asyncio
 import base64
 import io
 import json
 import random
-import time
 
 import httpx
 import numpy as np
@@ -12,11 +12,10 @@ from loguru import logger
 
 from virosense.backends.base import EmbeddingRequest, EmbeddingResult, Evo2Backend
 from virosense.utils.constants import (
-    EVO2_MODELS,
     NIM_BASE_URL,
     NIM_FORWARD_ENDPOINT,
+    NIM_MAX_CONCURRENT,
     NIM_MAX_SEQUENCE_LENGTH,
-    NIM_REQUEST_DELAY,
     NIM_REQUEST_TIMEOUT,
     get_nvidia_api_key,
 )
@@ -43,24 +42,36 @@ class NIMBackend(Evo2Backend):
     Requires NVIDIA_API_KEY environment variable.
 
     The NIM cloud API serves the Evo2 40B model. Sequences are sent
-    individually (one per request) and embeddings are returned as
-    base64-encoded NPZ data. Per-position embeddings are mean-pooled
-    to produce a single vector per sequence.
+    individually (one per request) but processed concurrently via
+    asyncio for significantly improved throughput.
+
+    Supports self-hosted NIM containers via the ``nim_url`` parameter,
+    which disables cloud rate limiting.
     """
 
     MAX_RETRIES = 5
     RETRY_BACKOFF = 2.0  # exponential backoff base (seconds)
 
-    def __init__(self, api_key: str | None = None, model: str = "evo2_7b"):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "evo2_7b",
+        nim_url: str | None = None,
+        max_concurrent: int | None = None,
+    ):
         self.api_key = api_key or get_nvidia_api_key()
         self.model = model
-        self._base_url = NIM_BASE_URL
+        self._custom_url = nim_url is not None
+        self._base_url = nim_url.rstrip("/") if nim_url else NIM_BASE_URL
+        self._max_concurrent = max_concurrent or (
+            0 if self._custom_url else NIM_MAX_CONCURRENT
+        )
 
     def extract_embeddings(self, request: EmbeddingRequest) -> EmbeddingResult:
-        """Extract embeddings via NIM API.
+        """Extract embeddings via NIM API with concurrent requests.
 
-        Sends one request per sequence, decodes the base64 NPZ response,
-        and mean-pools per-position embeddings into sequence-level vectors.
+        Sends one HTTP request per sequence but runs them concurrently
+        using asyncio, controlled by a semaphore to respect rate limits.
 
         Args:
             request: EmbeddingRequest with sequences and layer specification.
@@ -79,35 +90,21 @@ class NIMBackend(Evo2Backend):
             )
 
         sanitized = self._sanitize_sequences(request.sequences)
-
-        # NIM cloud API serves the 40B model and uses native Evo2 layer
-        # names (blocks.N.*). Layers from block 25+ return near-zero
-        # activations, so we map 7B-default layers to 40B equivalents.
         layer = self._resolve_layer(request.layer)
-        url = f"{self._base_url}{NIM_FORWARD_ENDPOINT}"
-        sequence_ids = list(sanitized.keys())
-        all_embeddings = []
-        n_seqs = len(sequence_ids)
+        n_seqs = len(sanitized)
 
+        max_c = self._max_concurrent if self._max_concurrent > 0 else n_seqs
         logger.info(
             f"Extracting embeddings for {n_seqs} sequences "
-            f"via NIM API (layer: {layer})"
+            f"via NIM API (layer: {layer}, concurrency: {min(max_c, n_seqs)})"
         )
 
-        with httpx.Client(timeout=NIM_REQUEST_TIMEOUT) as client:
-            for i, (seq_id, sequence) in enumerate(sanitized.items()):
-                embedding = self._extract_single(
-                    client, url, seq_id, sequence, layer
-                )
-                all_embeddings.append(embedding)
+        results = asyncio.run(
+            self._extract_all_async(sanitized, layer, max_c)
+        )
 
-                if (i + 1) % 50 == 0 or i + 1 == n_seqs:
-                    logger.info(f"  Progress: {i + 1}/{n_seqs} sequences")
-
-                if i < n_seqs - 1:
-                    time.sleep(NIM_REQUEST_DELAY)
-
-        embeddings_matrix = np.stack(all_embeddings).astype(np.float32)
+        sequence_ids = list(sanitized.keys())
+        embeddings_matrix = np.stack(results).astype(np.float32)
         logger.info(
             f"Extracted embeddings: {embeddings_matrix.shape} "
             f"({len(sequence_ids)} sequences)"
@@ -120,24 +117,47 @@ class NIMBackend(Evo2Backend):
             model=request.model,
         )
 
-    def _extract_single(
+    async def _extract_all_async(
         self,
-        client,
+        sequences: dict[str, str],
+        layer: str,
+        max_concurrent: int,
+    ) -> list[np.ndarray]:
+        """Extract embeddings for all sequences concurrently.
+
+        Uses a semaphore to limit the number of in-flight requests.
+        Returns embeddings in the same order as the input dict.
+        """
+        url = f"{self._base_url}{NIM_FORWARD_ENDPOINT}"
+        semaphore = asyncio.Semaphore(max_concurrent)
+        completed = 0
+        n_seqs = len(sequences)
+
+        async def extract_one(seq_id: str, sequence: str) -> np.ndarray:
+            nonlocal completed
+            async with semaphore:
+                embedding = await self._extract_single_async(
+                    url, seq_id, sequence, layer
+                )
+                completed += 1
+                if completed % 50 == 0 or completed == n_seqs:
+                    logger.info(f"  Progress: {completed}/{n_seqs} sequences")
+                return embedding
+
+        tasks = [
+            extract_one(seq_id, seq)
+            for seq_id, seq in sequences.items()
+        ]
+        return await asyncio.gather(*tasks)
+
+    async def _extract_single_async(
+        self,
         url: str,
         seq_id: str,
         sequence: str,
         layer: str,
     ) -> np.ndarray:
-        """Extract embedding for a single sequence with retry logic.
-
-        The NIM API has two response modes:
-        - Short sequences: 200 with JSON {"data": "<base64 NPZ>", "elapsed_ms": N}
-        - Longer sequences: 302 redirect to S3 presigned URL containing an NPZ
-          with a UUID-keyed entry whose value is the same JSON structure
-
-        Returns:
-            1D array of shape (embed_dim,) — mean-pooled embedding.
-        """
+        """Extract embedding for a single sequence with async retry logic."""
         payload = {
             "sequence": sequence,
             "output_layers": [layer],
@@ -149,7 +169,61 @@ class NIMBackend(Evo2Backend):
 
         for attempt in range(self.MAX_RETRIES):
             try:
-                response = client.post(url, json=payload, headers=headers)
+                async with httpx.AsyncClient(timeout=NIM_REQUEST_TIMEOUT) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+
+                    if response.status_code == 200:
+                        return self._decode_response(response.json(), layer, seq_id)
+
+                    if response.status_code == 302:
+                        try:
+                            return await self._fetch_s3_result_async(
+                                client, response, layer, seq_id
+                            )
+                        except _S3ExpiredError:
+                            wait = self.RETRY_BACKOFF ** (attempt + 1)
+                            logger.warning(
+                                f"S3 URL expired for {seq_id}, re-requesting "
+                                f"in {wait:.1f}s "
+                                f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                            )
+                            await asyncio.sleep(wait)
+                            continue
+
+                    if response.status_code == 429:
+                        wait = self.RETRY_BACKOFF ** (attempt + 1)
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after:
+                            wait = max(wait, float(retry_after))
+                        logger.warning(
+                            f"Rate limited on {seq_id}, retrying in {wait:.1f}s "
+                            f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+
+                    if response.status_code in (502, 503):
+                        wait = self.RETRY_BACKOFF ** (attempt + 1)
+                        logger.warning(
+                            f"Server error ({response.status_code}) for {seq_id}, "
+                            f"retrying in {wait:.1f}s "
+                            f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+
+                    if response.status_code == 422:
+                        raise ValueError(
+                            f"Sequence {seq_id} rejected by NIM API (422): "
+                            f"{response.text}. Sequence length: {len(sequence)} bp "
+                            f"(max: {NIM_MAX_SEQUENCE_LENGTH})."
+                        )
+
+                    raise RuntimeError(
+                        f"NIM API error for {seq_id}: "
+                        f"HTTP {response.status_code}: {response.text}"
+                    )
+
             except httpx.TransportError as e:
                 wait = self.RETRY_BACKOFF ** (attempt + 1)
                 logger.warning(
@@ -157,80 +231,23 @@ class NIMBackend(Evo2Backend):
                     f"Retrying in {wait:.1f}s "
                     f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
                 )
-                time.sleep(wait)
+                await asyncio.sleep(wait)
                 continue
-
-            if response.status_code == 200:
-                return self._decode_response(response.json(), layer, seq_id)
-
-            if response.status_code == 302:
-                try:
-                    return self._fetch_s3_result(client, response, layer, seq_id)
-                except _S3ExpiredError:
-                    wait = self.RETRY_BACKOFF ** (attempt + 1)
-                    logger.warning(
-                        f"S3 URL expired for {seq_id}, re-requesting from NIM "
-                        f"in {wait:.1f}s (attempt {attempt + 1}/{self.MAX_RETRIES})"
-                    )
-                    time.sleep(wait)
-                    continue
-
-            if response.status_code == 429:
-                wait = self.RETRY_BACKOFF ** (attempt + 1)
-                retry_after = response.headers.get("Retry-After")
-                if retry_after:
-                    wait = max(wait, float(retry_after))
-                logger.warning(
-                    f"Rate limited on {seq_id}, retrying in {wait:.1f}s "
-                    f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
-                )
-                time.sleep(wait)
-                continue
-
-            if response.status_code in (502, 503):
-                wait = self.RETRY_BACKOFF ** (attempt + 1)
-                logger.warning(
-                    f"Server error ({response.status_code}) for {seq_id}, "
-                    f"retrying in {wait:.1f}s "
-                    f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
-                )
-                time.sleep(wait)
-                continue
-
-            if response.status_code == 422:
-                raise ValueError(
-                    f"Sequence {seq_id} rejected by NIM API (422): "
-                    f"{response.text}. Sequence length: {len(sequence)} bp "
-                    f"(max: {NIM_MAX_SEQUENCE_LENGTH})."
-                )
-
-            raise RuntimeError(
-                f"NIM API error for {seq_id}: "
-                f"HTTP {response.status_code}: {response.text}"
-            )
 
         raise RuntimeError(
             f"NIM API failed for {seq_id} after {self.MAX_RETRIES} retries"
         )
 
-    def _fetch_s3_result(
-        self, client, response, layer: str, seq_id: str
+    async def _fetch_s3_result_async(
+        self, client: httpx.AsyncClient, response, layer: str, seq_id: str
     ) -> np.ndarray:
-        """Follow a 302 redirect to S3 and decode the NPZ result.
-
-        The S3 response is an NPZ with a UUID-keyed entry containing
-        JSON bytes with the same {"data": "<base64>", "elapsed_ms": N}
-        structure as a direct 200 response. Retries on network errors.
-        """
+        """Follow a 302 redirect to S3 and decode the NPZ result (async)."""
         s3_url = response.headers["location"]
 
         for attempt in range(self.MAX_RETRIES):
             try:
-                # GET the S3 presigned URL without auth headers
-                s3_response = client.get(s3_url, headers={})
+                s3_response = await client.get(s3_url, headers={})
                 if s3_response.status_code == 403:
-                    # Presigned URL expired — caller should retry the
-                    # full NIM request to get a fresh URL
                     raise _S3ExpiredError(
                         f"S3 presigned URL expired for {seq_id} (403)"
                     )
@@ -259,7 +276,7 @@ class NIMBackend(Evo2Backend):
                     f"Retrying in {wait:.1f}s "
                     f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
                 )
-                time.sleep(wait)
+                await asyncio.sleep(wait)
 
         raise RuntimeError(
             f"S3 fetch failed for {seq_id} after {self.MAX_RETRIES} retries"

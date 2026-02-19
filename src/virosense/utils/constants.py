@@ -23,6 +23,7 @@ NIM_MAX_SEQUENCE_LENGTH = 16_000  # bp per request
 NIM_RATE_LIMIT_RPM = 40
 NIM_REQUEST_DELAY = 60.0 / NIM_RATE_LIMIT_RPM  # seconds between requests
 NIM_REQUEST_TIMEOUT = 120.0  # seconds
+NIM_MAX_CONCURRENT = 10  # concurrent async requests (conservative; 40 RPM allows ~18)
 
 # Evo2 model specifications
 EVO2_MODELS = {
