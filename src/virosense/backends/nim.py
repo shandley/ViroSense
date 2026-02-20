@@ -227,7 +227,8 @@ class NIMBackend(Evo2Backend):
             except httpx.TransportError as e:
                 wait = self.RETRY_BACKOFF ** (attempt + 1)
                 logger.warning(
-                    f"Network error for {seq_id}: {e}. "
+                    f"Network error for {seq_id}: "
+                    f"{type(e).__name__}: {e or 'connection reset'}. "
                     f"Retrying in {wait:.1f}s "
                     f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
                 )
