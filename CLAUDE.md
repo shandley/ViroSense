@@ -1,6 +1,6 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-02-19
+Last updated: 2026-02-20
 
 ## Project Overview
 
@@ -12,7 +12,7 @@ Last updated: 2026-02-19
 - vHold is an optional dependency (`[vhold]` extra), integrated via file-based data exchange
 
 ### Key Constraint
-Evo2 requires NVIDIA GPU (H100/Ada+ with CUDA 12.1+ and FP8). Developer machine is Apple M4. Solution: backend abstraction with NVIDIA NIM API as default.
+Evo2 requires NVIDIA GPU (H100/Ada+ with CUDA 12.1+ and FP8). Developer machine is Apple M4. Solution: backend abstraction with NVIDIA NIM API as default, plus MLX backend for local Apple Silicon inference.
 
 ## Architecture
 
@@ -30,6 +30,8 @@ Evo2 requires NVIDIA GPU (H100/Ada+ with CUDA 12.1+ and FP8). Developer machine 
 Evo2Backend (ABC)
 ├── NIMBackend   — NVIDIA NIM API (default, async concurrent, needs NVIDIA_API_KEY)
 │                  Supports cloud API and self-hosted via --nim-url
+├── MLXBackend   — Apple Silicon local inference (Evo2 7B via MLX, no CUDA needed)
+│                  Needs: `python scripts/download_evo2_weights.py` (~13.2 GB)
 ├── LocalBackend — Direct evo2 package (needs CUDA H100/Ada GPU)
 └── ModalBackend — Modal.com serverless GPU (stub)
 ```
@@ -41,6 +43,7 @@ All backends implement: `extract_embeddings()`, `is_available()`, `max_context_l
 - **[gpu]**: torch, evo2
 - **[vhold]**: torch, transformers, sentencepiece
 - **[nim]**: httpx
+- **[mlx]**: mlx, safetensors, huggingface-hub
 - **[dev]**: pytest, pytest-cov, ruff
 
 ## Commands
@@ -134,6 +137,18 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - CLI: `--scan-mode`, `--coarse-window-size`, `--coarse-step-size`, `--coarse-threshold`, `--margin`
 - 35 prophage tests, 173 total passing
 
+### Phase 11: MLX backend (Apple Silicon) — IN PROGRESS
+- Full Evo2 7B forward pass reimplemented in Apple MLX (`backends/mlx_model.py`)
+- StripedHyena 2 architecture: 32 blocks (HCS/HCM/HCL Hyena + MHA attention)
+- HCS: short FIR filter (k=7), HCM: medium FIR filter (k=128, FFT), HCL: IIR filter (poles/residues, FFT)
+- Byte-level DNA tokenizer (A=65, C=67, G=71, T=84)
+- Lazy model loading, mean-pooled embedding extraction from any named layer
+- `MLXBackend` implements `Evo2Backend` ABC, registered in factory as `--backend mlx`
+- Weight download script: `python scripts/download_evo2_weights.py` (13.2 GB from HuggingFace)
+- 46 tests (all synthetic weights, no download required), 219 total passing
+- **Pending**: weight download, numerical validation against NIM, reference classifier retraining
+- Produces 4096-D embeddings (Evo2 7B) — different representations from NIM (Evo2 40B), requires separate reference classifier
+
 ## Environment Variables
 
 | Variable | Purpose |
@@ -149,6 +164,8 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 | `src/virosense/cli.py` | Click CLI with 6 subcommands |
 | `src/virosense/backends/base.py` | Evo2Backend ABC + factory |
 | `src/virosense/backends/nim.py` | NIM API client (production default) |
+| `src/virosense/backends/mlx_backend.py` | MLX backend for Apple Silicon |
+| `src/virosense/backends/mlx_model.py` | Evo2 7B model in MLX (StripedHyena 2) |
 | `src/virosense/features/evo2_embeddings.py` | Embedding extraction + incremental NPZ cache |
 | `src/virosense/features/prostt5_bridge.py` | Optional vHold integration |
 | `src/virosense/clustering/multimodal.py` | Multi-modal fusion + HDBSCAN/Leiden/KMeans |
@@ -168,8 +185,12 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 ## Development
 
 ```bash
-# Install in dev mode
-uv sync --extra dev
+# Install in dev mode (NIM backend)
+uv sync --extra dev --extra nim
+
+# Install for Apple Silicon (MLX backend)
+uv sync --extra dev --extra mlx
+python scripts/download_evo2_weights.py  # ~13.2 GB
 
 # Run tests
 uv run pytest tests/ -v
@@ -205,6 +226,7 @@ ViroSense's composition-based approach detects viral sequences that gene-depende
 | `scripts/filter_prophage_noise.py` | Post-hoc prophage contamination detection |
 | `scripts/compare_genomad.py` | Head-to-head ViroSense vs geNomad comparison |
 | `scripts/analyze_clusters.py` | PCA + HDBSCAN clustering with taxonomy cross-reference |
+| `scripts/download_evo2_weights.py` | Download Evo2 7B weights from HuggingFace for MLX backend |
 
 ## Performance / Speed
 
@@ -225,13 +247,15 @@ The 40 RPM rate limit allows up to ~13 concurrent requests (since each takes 27s
 - Auto-bypass for small inputs (< 100 fine windows)
 - CLI: `--scan-mode adaptive|full` (default: adaptive)
 
-### Speed Optimization Plan (remaining)
+### Phase B — MLX Backend (Apple Silicon) — IN PROGRESS
+- Replaces the original Modal backend plan with local Apple Silicon inference
+- Full Evo2 7B (StripedHyena 2) forward pass in MLX, no CUDA needed
+- Embedding extraction only (no generation, no KV cache)
+- Estimated: ~10-20s per 5kb sequence on M4 Max, no rate limits
+- **Pending**: weight download (13.2 GB), numerical validation, reference classifier retraining
+- Uses 7B model directly (4096-D embeddings) vs NIM's 40B model
 
-**Phase B — Modal backend implementation:**
-- Serverless A100/H100 via Modal.com Python SDK
-- True batch inference (4-8 sequences per GPU invocation)
-- Per-second billing: ~$0.87 for a full 5Mb chromosome scan
-- Expected: 20 min for a full chromosome vs 20 hours on NIM serial
+### Speed Optimization Plan (remaining)
 
 **Phase C2 — K-mer pre-filtering:**
 - Tetranucleotide frequency pre-filter for detect: skip obviously bacterial contigs

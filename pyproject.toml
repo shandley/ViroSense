@@ -34,6 +34,7 @@ dependencies = [
 gpu = ["torch>=2.0", "evo2"]
 vhold = ["torch>=2.0", "transformers>=4.30", "sentencepiece>=0.1.99"]
 nim = ["httpx>=0.25"]
+mlx = ["mlx>=0.20", "safetensors>=0.4", "huggingface-hub>=0.20"]
 dev = ["pytest>=7.0", "pytest-cov", "ruff"]
 
 [project.scripts]

@@ -76,6 +76,10 @@ DEFAULT_COARSE_THRESHOLD = 0.3  # lower than final threshold to avoid missing ed
 DEFAULT_COARSE_MARGIN = 20_000  # bp added around each coarse hit
 ADAPTIVE_AUTO_BYPASS_THRESHOLD = 100  # skip coarse pass if fewer fine windows
 
+# MLX backend
+MLX_MODEL_DIR = DEFAULT_MODEL_DIR / "evo2-7b"
+MLX_MAX_CONTEXT_LENGTH = 131_072  # memory-limited on M4 Max, not architecture-limited
+
 # Clustering
 DEFAULT_CLUSTERING_ALGORITHM = "hdbscan"
 DEFAULT_MIN_CLUSTER_SIZE = 5

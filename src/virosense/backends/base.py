@@ -65,5 +65,10 @@ def get_backend(name: str, **kwargs) -> Evo2Backend:
         for k in _nim_only:
             kwargs.pop(k, None)
         return ModalBackend(**kwargs)
+    elif name == "mlx":
+        from virosense.backends.mlx_backend import MLXBackend
+        for k in _nim_only:
+            kwargs.pop(k, None)
+        return MLXBackend(**kwargs)
     else:
-        raise ValueError(f"Unknown backend: {name}. Choose from: nim, local, modal")
+        raise ValueError(f"Unknown backend: {name}. Choose from: nim, local, modal, mlx")
