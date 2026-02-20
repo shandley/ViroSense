@@ -69,6 +69,13 @@ PROSTT5_EMBED_DIM = 1024
 DEFAULT_VIRAL_THRESHOLD = 0.5
 DEFAULT_MIN_CONTIG_LENGTH = 500
 
+# Adaptive prophage scanning
+DEFAULT_COARSE_WINDOW_SIZE = 15_000  # bp
+DEFAULT_COARSE_STEP_SIZE = 10_000  # bp
+DEFAULT_COARSE_THRESHOLD = 0.3  # lower than final threshold to avoid missing edges
+DEFAULT_COARSE_MARGIN = 20_000  # bp added around each coarse hit
+ADAPTIVE_AUTO_BYPASS_THRESHOLD = 100  # skip coarse pass if fewer fine windows
+
 # Clustering
 DEFAULT_CLUSTERING_ALGORITHM = "hdbscan"
 DEFAULT_MIN_CLUSTER_SIZE = 5

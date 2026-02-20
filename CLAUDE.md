@@ -121,7 +121,18 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - Reuses `_load_classifier` from detect module, `extract_embeddings` with caching
 - Validated on Salmonella enterica (2 prophage regions: 11 kb + 19 kb) and Lelliottia amnigena (1 region: 41 kb)
 - Sharp boundary detection: scores transition 0.99→0.00 within a single window step
-- 21 tests, 159 total passing
+
+### Phase 10: adaptive prophage scanning — COMPLETE
+- Two-pass coarse→fine scanning (`--scan-mode adaptive`, default)
+- Coarse pass: 15kb windows, 10kb step → identifies candidate regions (score >= 0.3)
+- Fine pass: 5kb windows, 2kb step, restricted to candidate regions + 20kb margin
+- ~5x reduction in API calls for typical bacterial chromosomes
+- `identify_candidate_regions()`: interval expansion, overlap merging, chromosome-aware
+- `generate_windows_for_regions()`: fine-resolution tiling within candidate intervals
+- Auto-bypass: inputs < 100 fine windows skip coarse pass (backward compatible)
+- Summary JSON includes adaptive scan statistics (n_coarse_windows, n_candidate_regions, etc.)
+- CLI: `--scan-mode`, `--coarse-window-size`, `--coarse-step-size`, `--coarse-threshold`, `--margin`
+- 35 prophage tests, 173 total passing
 
 ## Environment Variables
 
@@ -202,11 +213,17 @@ NIM cloud API: ~27s per sequence (Evo2 40B inference), now with async concurrent
 The 40 RPM rate limit allows up to ~13 concurrent requests (since each takes 27s).
 
 ### Phase A — NIM Async Concurrency — COMPLETE
-- `NIMBackend` uses `httpx.AsyncClient` + `asyncio.gather()` + `asyncio.Semaphore(10)`
-- 10 concurrent requests (conservative; 40 RPM limit allows ~18)
+- `NIMBackend` uses `httpx.AsyncClient` + `asyncio.gather()` + `asyncio.Semaphore(3)`
+- Empirically validated: NVIDIA cloud NIM serializes requests per user; concurrency=3 is optimal
 - Self-hosted NIM: unlimited concurrency via `--nim-url` flag on all commands
-- Expected: 5-10x speedup on cloud, no rate-limit overhead on self-hosted
-- Removed serial `time.sleep()` between requests
+- Timeout: 300s (prevents queue timeouts for concurrent requests)
+
+### Phase C1 — Adaptive Prophage Scanning — COMPLETE
+- Two-pass coarse→fine scanning reduces API calls ~5x for typical chromosomes
+- Coarse: 15kb windows, 10kb step → ~500 windows for 5Mb chromosome
+- Fine: 5kb/2kb only on candidate regions (score >= 0.3, ±20kb margin)
+- Auto-bypass for small inputs (< 100 fine windows)
+- CLI: `--scan-mode adaptive|full` (default: adaptive)
 
 ### Speed Optimization Plan (remaining)
 
@@ -216,10 +233,9 @@ The 40 RPM rate limit allows up to ~13 concurrent requests (since each takes 27s
 - Per-second billing: ~$0.87 for a full 5Mb chromosome scan
 - Expected: 20 min for a full chromosome vs 20 hours on NIM serial
 
-**Phase C — Algorithmic optimizations:**
-- Adaptive prophage scanning: coarse pass (15kb windows) → fine pass on hits only
-- K-mer pre-filtering for detect: skip obviously bacterial contigs
-- Larger windows (10-15 kb) where resolution permits
+**Phase C2 — K-mer pre-filtering:**
+- Tetranucleotide frequency pre-filter for detect: skip obviously bacterial contigs
+- Expected: 50-80% of contigs pre-classified by k-mer alone
 
 ### Self-hosted NIM
 Docker: `nvcr.io/nim/arc/evo2:2` — same HTTP API as cloud, no rate limits.

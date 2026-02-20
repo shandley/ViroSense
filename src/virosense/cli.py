@@ -257,14 +257,32 @@ def classify(input_file, labels, output, backend, model, task,
               help="Pre-trained classifier model (default: reference model)")
 @click.option("--nim-url", default=None,
               help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
+@click.option("--scan-mode", type=click.Choice(["adaptive", "full"]),
+              default="adaptive",
+              help="Scanning strategy: adaptive (two-pass, default) or full (single-pass)")
+@click.option("--coarse-window-size", default=15000, type=int,
+              help="Coarse pass window size in bp (default: 15000, adaptive only)")
+@click.option("--coarse-step-size", default=10000, type=int,
+              help="Coarse pass step size in bp (default: 10000, adaptive only)")
+@click.option("--coarse-threshold", default=0.3, type=float,
+              help="Score threshold for coarse-pass hits (default: 0.3, adaptive only)")
+@click.option("--margin", default=20000, type=int,
+              help="Margin in bp around coarse hits for fine pass (default: 20000)")
 def prophage(input_file, output, backend, model, threshold,
              window_size, step_size, min_region_length, merge_gap,
-             batch_size, layer, cache_dir, classifier_model, nim_url):
+             batch_size, layer, cache_dir, classifier_model, nim_url,
+             scan_mode, coarse_window_size, coarse_step_size,
+             coarse_threshold, margin):
     """Detect prophage regions in bacterial chromosomes.
 
     Scans input sequences with a sliding window, scores each window
     using a trained viral classifier, and merges consecutive high-scoring
     windows into prophage region calls. Outputs TSV and BED files.
+
+    Default mode is adaptive two-pass scanning: a coarse pass identifies
+    candidate regions, then a fine pass scans only those regions. This
+    reduces API calls ~5x for typical bacterial chromosomes. Use
+    --scan-mode full for single-pass scanning at fine resolution.
     """
     from virosense.subcommands.prophage import run_prophage
     run_prophage(
@@ -282,6 +300,11 @@ def prophage(input_file, output, backend, model, threshold,
         cache_dir=cache_dir,
         classifier_model=classifier_model,
         nim_url=nim_url,
+        scan_mode=scan_mode,
+        coarse_window_size=coarse_window_size,
+        coarse_step_size=coarse_step_size,
+        coarse_threshold=coarse_threshold,
+        margin=margin,
     )
 
 

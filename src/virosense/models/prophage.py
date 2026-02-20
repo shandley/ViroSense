@@ -19,6 +19,15 @@ class WindowResult:
 
 
 @dataclass
+class CandidateRegion:
+    """A genomic interval identified by coarse scanning for fine-resolution follow-up."""
+
+    chromosome_id: str
+    start: int
+    end: int
+
+
+@dataclass
 class ProphageRegion:
     """A merged prophage region from consecutive high-scoring windows."""
 
@@ -95,6 +104,143 @@ def generate_windows(
         f"Generated {len(window_sequences)} windows from "
         f"{len(chromosomes)} chromosome(s) "
         f"(window={window_size}, step={step_size})"
+    )
+    return window_sequences, window_metadata
+
+
+def identify_candidate_regions(
+    coarse_results: list[WindowResult],
+    coarse_threshold: float = 0.3,
+    margin: int = 20_000,
+    chromosome_lengths: dict[str, int] | None = None,
+) -> list[CandidateRegion]:
+    """Identify candidate prophage regions from coarse-pass window scores.
+
+    Any coarse window scoring >= coarse_threshold is flagged as a hit.
+    Hits are expanded by ±margin bp, then overlapping intervals on the
+    same chromosome are merged into contiguous CandidateRegions.
+
+    Args:
+        coarse_results: WindowResult list from the coarse scoring pass.
+        coarse_threshold: Score threshold for flagging a coarse window as a hit.
+        margin: Basepairs to add on each side of every hit.
+        chromosome_lengths: Dict of chromosome_id -> length to clamp coordinates.
+
+    Returns:
+        List of CandidateRegion intervals for fine-resolution scanning.
+    """
+    # Collect hit intervals per chromosome
+    hits_by_chrom: dict[str, list[tuple[int, int]]] = {}
+    for w in coarse_results:
+        if w.viral_score >= coarse_threshold:
+            chrom_len = (
+                chromosome_lengths.get(w.chromosome_id) if chromosome_lengths else None
+            )
+            start = max(0, w.start - margin)
+            end = w.end + margin
+            if chrom_len is not None:
+                end = min(end, chrom_len)
+            hits_by_chrom.setdefault(w.chromosome_id, []).append((start, end))
+
+    # Merge overlapping intervals per chromosome
+    candidates: list[CandidateRegion] = []
+    for chrom_id in sorted(hits_by_chrom.keys()):
+        intervals = sorted(hits_by_chrom[chrom_id])
+        merged_start, merged_end = intervals[0]
+        for start, end in intervals[1:]:
+            if start <= merged_end:
+                merged_end = max(merged_end, end)
+            else:
+                candidates.append(
+                    CandidateRegion(chrom_id, merged_start, merged_end)
+                )
+                merged_start, merged_end = start, end
+        candidates.append(CandidateRegion(chrom_id, merged_start, merged_end))
+
+    n_hits = sum(len(v) for v in hits_by_chrom.values())
+    logger.info(
+        f"Identified {len(candidates)} candidate region(s) on "
+        f"{len(hits_by_chrom)} chromosome(s) from {n_hits} coarse hit(s)"
+    )
+    return candidates
+
+
+def generate_windows_for_regions(
+    chromosomes: dict[str, str],
+    regions: list[CandidateRegion],
+    window_size: int = 5000,
+    step_size: int = 2000,
+) -> tuple[dict[str, str], list[dict]]:
+    """Generate fine-resolution windows only within candidate regions.
+
+    Like generate_windows(), but restricted to coordinate intervals
+    defined by candidate regions. Window IDs use global chromosome
+    coordinates for compatibility with downstream functions.
+
+    Args:
+        chromosomes: Dict of chromosome_id -> full DNA sequence.
+        regions: CandidateRegion intervals from identify_candidate_regions().
+        window_size: Fine-resolution window size in bp.
+        step_size: Fine-resolution step size in bp.
+
+    Returns:
+        Same format as generate_windows(): (window_sequences, window_metadata).
+    """
+    window_sequences: dict[str, str] = {}
+    window_metadata: list[dict] = []
+    seen_wids: set[str] = set()
+
+    for region in regions:
+        seq = chromosomes.get(region.chromosome_id)
+        if seq is None:
+            continue
+
+        region_len = region.end - region.start
+        if region_len <= window_size:
+            # Region fits in a single window
+            wid = f"{region.chromosome_id}:{region.start}:{region.end}"
+            if wid not in seen_wids:
+                seen_wids.add(wid)
+                window_sequences[wid] = seq[region.start : region.end]
+                window_metadata.append({
+                    "window_id": wid,
+                    "chromosome_id": region.chromosome_id,
+                    "start": region.start,
+                    "end": region.end,
+                })
+            continue
+
+        for offset in range(0, region_len - window_size + 1, step_size):
+            start = region.start + offset
+            end = start + window_size
+            wid = f"{region.chromosome_id}:{start}:{end}"
+            if wid not in seen_wids:
+                seen_wids.add(wid)
+                window_sequences[wid] = seq[start:end]
+                window_metadata.append({
+                    "window_id": wid,
+                    "chromosome_id": region.chromosome_id,
+                    "start": start,
+                    "end": end,
+                })
+
+        # Ensure the last window covers the region end
+        last_start = region.end - window_size
+        if last_start > region.start:
+            wid = f"{region.chromosome_id}:{last_start}:{region.end}"
+            if wid not in seen_wids:
+                seen_wids.add(wid)
+                window_sequences[wid] = seq[last_start : region.end]
+                window_metadata.append({
+                    "window_id": wid,
+                    "chromosome_id": region.chromosome_id,
+                    "start": last_start,
+                    "end": region.end,
+                })
+
+    logger.info(
+        f"Generated {len(window_sequences)} fine-resolution windows "
+        f"across {len(regions)} candidate region(s)"
     )
     return window_sequences, window_metadata
 

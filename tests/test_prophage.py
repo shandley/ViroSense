@@ -10,9 +10,12 @@ import pytest
 
 from virosense.backends.base import EmbeddingRequest, EmbeddingResult
 from virosense.models.prophage import (
+    CandidateRegion,
     ProphageRegion,
     WindowResult,
     generate_windows,
+    generate_windows_for_regions,
+    identify_candidate_regions,
     merge_prophage_regions,
     score_windows,
 )
@@ -460,3 +463,262 @@ class TestProphagePipeline:
         # Verify no window exceeds 10000 bp
         for _, row in windows_df.iterrows():
             assert row["end"] - row["start"] <= 10000
+
+
+# ---------------------------------------------------------------------------
+# Candidate region identification tests
+# ---------------------------------------------------------------------------
+
+
+class TestIdentifyCandidateRegions:
+    """Tests for identify_candidate_regions from coarse-pass results."""
+
+    def test_single_hit_with_margin(self):
+        """Single coarse hit produces one candidate with margin."""
+        results = [
+            WindowResult("chr1:0:15000", "chr1", 0, 15000, 0.1, "cellular"),
+            WindowResult("chr1:10000:25000", "chr1", 10000, 25000, 0.8, "viral"),
+            WindowResult("chr1:20000:35000", "chr1", 20000, 35000, 0.1, "cellular"),
+        ]
+        candidates = identify_candidate_regions(
+            results, coarse_threshold=0.5, margin=5000,
+            chromosome_lengths={"chr1": 50000},
+        )
+        assert len(candidates) == 1
+        assert candidates[0].chromosome_id == "chr1"
+        assert candidates[0].start == 5000   # 10000 - 5000
+        assert candidates[0].end == 30000    # 25000 + 5000
+
+    def test_no_hits(self):
+        """No coarse hits → no candidates."""
+        results = [
+            WindowResult("chr1:0:15000", "chr1", 0, 15000, 0.1, "cellular"),
+        ]
+        candidates = identify_candidate_regions(results, coarse_threshold=0.5)
+        assert len(candidates) == 0
+
+    def test_overlapping_hits_merge(self):
+        """Adjacent coarse hits produce a single merged candidate."""
+        results = [
+            WindowResult("chr1:0:15000", "chr1", 0, 15000, 0.9, "viral"),
+            WindowResult("chr1:10000:25000", "chr1", 10000, 25000, 0.85, "viral"),
+        ]
+        candidates = identify_candidate_regions(
+            results, coarse_threshold=0.5, margin=5000,
+            chromosome_lengths={"chr1": 100000},
+        )
+        assert len(candidates) == 1
+        assert candidates[0].start == 0      # max(0, 0 - 5000)
+        assert candidates[0].end == 30000    # 25000 + 5000
+
+    def test_disjoint_hits_separate(self):
+        """Widely separated hits produce separate candidates."""
+        results = [
+            WindowResult("chr1:0:15000", "chr1", 0, 15000, 0.9, "viral"),
+            WindowResult("chr1:100000:115000", "chr1", 100000, 115000, 0.85, "viral"),
+        ]
+        candidates = identify_candidate_regions(
+            results, coarse_threshold=0.5, margin=5000,
+            chromosome_lengths={"chr1": 200000},
+        )
+        assert len(candidates) == 2
+
+    def test_clamps_to_chromosome_boundaries(self):
+        """Margin does not extend past chromosome start/end."""
+        results = [
+            WindowResult("chr1:0:15000", "chr1", 0, 15000, 0.9, "viral"),
+        ]
+        candidates = identify_candidate_regions(
+            results, coarse_threshold=0.5, margin=20000,
+            chromosome_lengths={"chr1": 20000},
+        )
+        assert len(candidates) == 1
+        assert candidates[0].start == 0
+        assert candidates[0].end == 20000
+
+    def test_multiple_chromosomes(self):
+        """Candidates found independently per chromosome."""
+        results = [
+            WindowResult("chr1:0:15000", "chr1", 0, 15000, 0.9, "viral"),
+            WindowResult("chr2:50000:65000", "chr2", 50000, 65000, 0.8, "viral"),
+        ]
+        candidates = identify_candidate_regions(
+            results, coarse_threshold=0.5, margin=5000,
+            chromosome_lengths={"chr1": 100000, "chr2": 100000},
+        )
+        assert len(candidates) == 2
+        chroms = {c.chromosome_id for c in candidates}
+        assert chroms == {"chr1", "chr2"}
+
+
+# ---------------------------------------------------------------------------
+# Fine-resolution window generation for candidate regions
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateWindowsForRegions:
+    """Tests for fine-resolution window generation within candidate regions."""
+
+    def test_basic_region(self):
+        """Windows generated within a candidate region."""
+        chroms = {"chr1": "A" * 100000}
+        regions = [CandidateRegion("chr1", 20000, 40000)]
+        seqs, meta = generate_windows_for_regions(
+            chroms, regions, window_size=5000, step_size=2000,
+        )
+        assert len(seqs) > 0
+        for m in meta:
+            assert m["start"] >= 20000
+            assert m["end"] <= 40000
+
+    def test_no_regions(self):
+        """No candidate regions → no windows."""
+        chroms = {"chr1": "A" * 100000}
+        seqs, meta = generate_windows_for_regions(chroms, [], 5000, 2000)
+        assert len(seqs) == 0
+        assert len(meta) == 0
+
+    def test_global_coordinates(self):
+        """Window IDs use global chromosome coordinates, not region-local."""
+        chroms = {"chr1": "A" * 100000}
+        regions = [CandidateRegion("chr1", 50000, 60000)]
+        seqs, meta = generate_windows_for_regions(
+            chroms, regions, window_size=5000, step_size=2000,
+        )
+        for m in meta:
+            assert m["start"] >= 50000
+            parts = m["window_id"].split(":")
+            assert int(parts[1]) >= 50000
+
+    def test_multiple_regions_dedup(self):
+        """Overlapping candidate regions do not produce duplicate windows."""
+        chroms = {"chr1": "A" * 100000}
+        regions = [
+            CandidateRegion("chr1", 20000, 30000),
+            CandidateRegion("chr1", 25000, 35000),
+        ]
+        seqs, meta = generate_windows_for_regions(
+            chroms, regions, window_size=5000, step_size=2000,
+        )
+        wids = [m["window_id"] for m in meta]
+        assert len(wids) == len(set(wids))
+
+    def test_small_region_single_window(self):
+        """Region smaller than window_size → single window."""
+        chroms = {"chr1": "A" * 100000}
+        regions = [CandidateRegion("chr1", 10000, 13000)]
+        seqs, meta = generate_windows_for_regions(
+            chroms, regions, window_size=5000, step_size=2000,
+        )
+        assert len(seqs) == 1
+        assert meta[0]["start"] == 10000
+        assert meta[0]["end"] == 13000
+
+    def test_sequences_match_coordinates(self):
+        """Extracted sequences match the chromosome slice."""
+        seq = "AAAA" * 5000 + "CCCC" * 5000 + "GGGG" * 5000  # 60000 bp
+        chroms = {"chr1": seq}
+        regions = [CandidateRegion("chr1", 20000, 30000)]
+        seqs, meta = generate_windows_for_regions(
+            chroms, regions, window_size=5000, step_size=2000,
+        )
+        for m in meta:
+            wid = m["window_id"]
+            assert seqs[wid] == seq[m["start"]:m["end"]]
+
+
+# ---------------------------------------------------------------------------
+# Adaptive pipeline integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestAdaptivePipeline:
+    """Integration tests for the adaptive two-pass scanning pipeline."""
+
+    def test_adaptive_auto_bypass_small_input(self, tmp_path):
+        """Small chromosome auto-bypasses to full mode."""
+        from virosense.subcommands.prophage import run_prophage
+
+        fasta = tmp_path / "small.fasta"
+        with open(fasta, "w") as f:
+            f.write(">chr1\n")
+            f.write("ATGC" * 5000 + "\n")  # 20 kb
+
+        mock_backend = _make_mock_backend()
+
+        from virosense.models.detector import ClassifierConfig, ViralClassifier
+
+        rng = np.random.RandomState(42)
+        X = rng.randn(40, 64).astype(np.float32)
+        y = np.array([0] * 20 + [1] * 20)
+        clf = ViralClassifier(ClassifierConfig(input_dim=64, num_classes=2))
+        clf.fit(X, y, class_names=["cellular", "viral"])
+
+        with (
+            patch("virosense.backends.base.get_backend", return_value=mock_backend),
+            patch(
+                "virosense.subcommands.detect._load_classifier",
+                return_value=clf,
+            ),
+        ):
+            run_prophage(
+                input_file=str(fasta),
+                output_dir=str(tmp_path / "results"),
+                scan_mode="adaptive",
+            )
+
+        with open(tmp_path / "results" / "prophage_summary.json") as f:
+            summary = json.load(f)
+        assert summary["parameters"]["scan_mode"] == "full"
+        assert "adaptive" not in summary
+
+    def test_adaptive_output_format(self, tmp_path):
+        """Adaptive mode produces same output files with correct columns."""
+        from virosense.subcommands.prophage import run_prophage
+
+        # Create a chromosome large enough to trigger adaptive mode
+        fasta = tmp_path / "chr.fasta"
+        with open(fasta, "w") as f:
+            f.write(">chr1\n")
+            f.write("ATGC" * 125000 + "\n")  # 500 kb
+
+        mock_backend = _make_mock_backend()
+
+        from virosense.models.detector import ClassifierConfig, ViralClassifier
+
+        rng = np.random.RandomState(42)
+        X = rng.randn(40, 64).astype(np.float32)
+        y = np.array([0] * 20 + [1] * 20)
+        clf = ViralClassifier(ClassifierConfig(input_dim=64, num_classes=2))
+        clf.fit(X, y, class_names=["cellular", "viral"])
+
+        with (
+            patch("virosense.backends.base.get_backend", return_value=mock_backend),
+            patch(
+                "virosense.subcommands.detect._load_classifier",
+                return_value=clf,
+            ),
+        ):
+            run_prophage(
+                input_file=str(fasta),
+                output_dir=str(tmp_path / "adaptive"),
+                scan_mode="adaptive",
+            )
+
+        output = tmp_path / "adaptive"
+        assert (output / "prophage_windows.tsv").exists()
+        assert (output / "prophage_regions.tsv").exists()
+        assert (output / "prophage_regions.bed").exists()
+        assert (output / "prophage_summary.json").exists()
+
+        windows_df = pd.read_csv(output / "prophage_windows.tsv", sep="\t")
+        expected_cols = {"window_id", "chromosome_id", "start", "end",
+                         "viral_score", "classification"}
+        assert expected_cols.issubset(set(windows_df.columns))
+
+        with open(output / "prophage_summary.json") as f:
+            summary = json.load(f)
+        assert summary["parameters"]["scan_mode"] == "adaptive"
+        assert "adaptive" in summary
+        assert "n_coarse_windows" in summary["adaptive"]
+        assert "n_fine_windows" in summary["adaptive"]
