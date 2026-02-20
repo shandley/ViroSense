@@ -1,0 +1,4 @@
+region_id	chromosome_id	start	end	length	n_windows	mean_score	max_score
+prophage_0	NZ_AP023299.1_1246000_1296000	0	11000	11000	4	0.9882	0.9992
+prophage_1	NZ_AP023299.1_1246000_1296000	18000	37000	19000	6	0.91	0.9999
+prophage_2	NZ_CP077331.1_1466000_1516000	0	41000	41000	18	0.9623	1.0
