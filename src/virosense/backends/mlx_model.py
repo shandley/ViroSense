@@ -156,13 +156,21 @@ def fft_conv(u: mx.array, h: mx.array, d: mx.array | None = None) -> mx.array:
     H = mx.fft.rfft(h.astype(mx.float32), n=n, axis=-1)
     U = mx.fft.rfft(u.astype(mx.float32), n=n, axis=-1)
 
-    # Broadcast: H is (G, n//2+1), U is (B, D, n//2+1)
-    # If G < D (grouped conv), repeat H to match D
+    # Broadcast: H is (G, freq), U is (B, D, freq)
+    # If G < D (grouped conv), use reshape+broadcast instead of materializing repeat
     if H.shape[0] < U.shape[1]:
-        repeats = U.shape[1] // H.shape[0]
-        H = mx.repeat(H, repeats, axis=0)
-
-    y = mx.fft.irfft(U * H[None], n=n, axis=-1)[..., :L]
+        G = H.shape[0]
+        repeats = U.shape[1] // G
+        freq = H.shape[-1]
+        # Reshape U: (B, D, freq) -> (B, G, repeats, freq)
+        U_grouped = U.reshape(U.shape[0], G, repeats, freq)
+        # H: (G, freq) -> (1, G, 1, freq) for broadcasting
+        product = U_grouped * H[None, :, None, :]
+        # irfft on last axis, then reshape back to (B, D, ...)
+        y_grouped = mx.fft.irfft(product, n=n, axis=-1)  # (B, G, repeats, 2L)
+        y = y_grouped.reshape(y_grouped.shape[0], -1, 2 * L)[..., :L]
+    else:
+        y = mx.fft.irfft(U * H[None], n=n, axis=-1)[..., :L]
 
     if d is not None:
         y = y + u * d[None, :, None]
@@ -192,21 +200,12 @@ class ShortFilter(nn.Module):
         Returns:
             Output shape (B, L, C).
         """
-        B, L, C = x.shape
-        # Transpose to NCL for manual FFT conv, then back
-        x_ncl = mx.transpose(x, axes=(0, 2, 1))  # (B, C, L)
-
-        # Use direct conv via padding + matmul for short kernels
+        # mx.conv1d expects NLC input and weight (out_ch, kernel_width, in_ch//groups)
+        # self.weight is stored as (C, 1, K) — transpose to (C, K, 1) for conv1d
         pad = self.kernel_size - 1
-        x_padded = mx.pad(x_ncl, [(0, 0), (0, 0), (pad, 0)])  # left-pad (causal)
-        # Sliding window via as_strided would be ideal but we'll use a simple loop-free approach
-        # For kernel_size=3, this is: w0*x[t-2] + w1*x[t-1] + w2*x[t]
-        out = mx.zeros_like(x_ncl)
-        for k in range(self.kernel_size):
-            offset = pad - k
-            out = out + x_padded[:, :, offset:offset + L] * self.weight[:, 0, k:k + 1]
-
-        return mx.transpose(out, axes=(0, 2, 1))  # back to NLC
+        x_padded = mx.pad(x, [(0, 0), (pad, 0), (0, 0)])  # causal left-pad in NLC
+        w = mx.transpose(self.weight, axes=(0, 2, 1))  # (C, K, 1)
+        return mx.conv1d(x_padded, w, groups=self.channels)
 
 
 class FIRFilter(nn.Module):
@@ -226,6 +225,20 @@ class FIRFilter(nn.Module):
         self.has_d = has_d
         if has_d:
             self.D = mx.zeros((hidden_size,))
+        # Pre-expanded weight for short FIR depthwise conv (populated by expand_weights)
+        self._h_expanded: mx.array | None = None
+
+    def expand_weights(self) -> None:
+        """Pre-expand grouped filter to depthwise (D, K, 1) for mx.conv1d.
+
+        Call after loading weights to avoid per-forward mx.repeat.
+        MLX conv1d weight layout: (out_channels, kernel_width, in_channels_per_group).
+        """
+        if self.filter_length < 128 and self.filter_groups < self.hidden_size:
+            repeats = self.hidden_size // self.filter_groups
+            # (G, 1, K) -> (D, 1, K) -> transpose to (D, K, 1)
+            expanded = mx.repeat(self.h, repeats, axis=0)
+            self._h_expanded = mx.transpose(expanded, axes=(0, 2, 1))  # (D, K, 1)
 
     def __call__(self, u: mx.array) -> mx.array:
         """Apply FIR filter.
@@ -239,22 +252,22 @@ class FIRFilter(nn.Module):
         d = self.D if self.has_d else None
 
         if self.filter_length < 128:
-            # Short FIR: direct depthwise conv
-            L = u.shape[-1]
+            # Short FIR: depthwise conv1d via mx.conv1d
+            D = u.shape[1]
             pad = self.filter_length - 1
-            u_padded = mx.pad(u, [(0, 0), (0, 0), (pad, 0)])
-
-            h = self.h.squeeze(1)  # (G, K)
-            # Repeat filter groups to match channels
-            if self.filter_groups < self.hidden_size:
-                repeats = self.hidden_size // self.filter_groups
-                h = mx.repeat(h, repeats, axis=0)  # (D, K)
-
-            out = mx.zeros_like(u)
-            for k in range(self.filter_length):
-                offset = pad - k
-                out = out + u_padded[:, :, offset:offset + L] * h[:, k:k + 1][None]
-
+            if self._h_expanded is not None:
+                h_weight = self._h_expanded  # (D, K, 1) already in MLX layout
+            else:
+                # Expand on-the-fly: (G, 1, K) -> (D, 1, K) -> (D, K, 1)
+                h = self.h
+                if self.filter_groups < D:
+                    h = mx.repeat(h, D // self.filter_groups, axis=0)
+                h_weight = mx.transpose(h, axes=(0, 2, 1))  # (D, K, 1)
+            # Transpose NCL -> NLC for mx.conv1d
+            u_nlc = mx.transpose(u, axes=(0, 2, 1))
+            u_padded = mx.pad(u_nlc, [(0, 0), (pad, 0), (0, 0)])
+            out_nlc = mx.conv1d(u_padded, h_weight, groups=D)
+            out = mx.transpose(out_nlc, axes=(0, 2, 1))  # back to NCL
             if d is not None:
                 out = out + u * d[None, :, None]
             return out
@@ -280,19 +293,29 @@ class IIRFilter(nn.Module):
         self.D = mx.zeros((hidden_size,))
         self.hidden_size = hidden_size
         self.state_size = state_size
+        self._filter_cache: dict[int, mx.array] = {}
+
+    def clear_cache(self) -> None:
+        """Clear cached filter kernels (call after weight updates)."""
+        self._filter_cache.clear()
 
     def compute_filter(self, L: int) -> mx.array:
-        """Compute IIR filter kernel of length L.
+        """Compute IIR filter kernel of length L (cached by length).
 
         Returns:
             Filter kernel shape (1, hidden_size, L).
         """
+        if L in self._filter_cache:
+            return self._filter_cache[L]
+
         t = mx.arange(L, dtype=mx.float32).reshape(1, 1, L)  # (1, 1, L)
         # log_poles: (D, S, 1), t: (1, 1, L) -> (D, S, L)
         decay = mx.exp(self.log_poles * t)
         # residues: (D, S) -> (D, S, 1) * (D, S, L) -> sum over S -> (D, L)
         h = (self.residues[..., None] * decay).sum(axis=1)
-        return h[None]  # (1, D, L)
+        result = h[None]  # (1, D, L)
+        self._filter_cache[L] = result
+        return result
 
     def __call__(self, u: mx.array) -> mx.array:
         """Apply IIR filter via FFT convolution.
@@ -385,21 +408,17 @@ class HyenaBlock(nn.Module):
         z = mx.transpose(z, axes=(0, 1, 3, 2))  # (B, L, 3, D)
         z = z.reshape(B, L, 3 * D)
 
-        # Split into x2 (gate), x1, v
+        # Split into x2 (gate), x1, v — all in NLC (B, L, D)
         x2 = z[:, :, :D]
         x1 = z[:, :, D:2 * D]
         v = z[:, :, 2 * D:]
 
-        # Transpose to NCL for convolution operations
-        x1_ncl = mx.transpose(x1, axes=(0, 2, 1))  # (B, D, L)
-        v_ncl = mx.transpose(v, axes=(0, 2, 1))  # (B, D, L)
-
         # Gated convolution: filter(x1 * v) * x2
-        x1v = x1_ncl * v_ncl  # (B, D, L)
-        filtered = self.inner_filter(x1v)  # (B, D, L)
-
-        # Gate with x2
-        filtered_nlc = mx.transpose(filtered, axes=(0, 2, 1))  # (B, L, D)
+        # Multiply in NLC (element-wise is layout-agnostic), then transpose once for filter
+        x1v = x1 * v  # (B, L, D)
+        x1v_ncl = mx.transpose(x1v, axes=(0, 2, 1))  # (B, D, L) — 1 transpose
+        filtered = self.inner_filter(x1v_ncl)  # (B, D, L)
+        filtered_nlc = mx.transpose(filtered, axes=(0, 2, 1))  # (B, L, D) — 1 transpose
         y = filtered_nlc * x2  # (B, L, D)
 
         # Output projection + residual
@@ -673,6 +692,7 @@ def load_weights(model: Evo2Model, model_dir: str | Path) -> None:
                 filt.h = weights[f"{prefix}.filter.h"]
                 if filt.has_d:
                     filt.D = weights[f"{prefix}.filter.D"]
+                filt.expand_weights()  # pre-expand grouped → depthwise
             elif isinstance(filt, IIRFilter):
                 filt.log_poles = weights[f"{prefix}.filter.log_poles"]
                 filt.residues = weights[f"{prefix}.filter.residues"]
