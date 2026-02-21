@@ -126,6 +126,8 @@ class NIMBackend(Evo2Backend):
         """Extract embeddings for all sequences concurrently.
 
         Uses a semaphore to limit the number of in-flight requests.
+        A single httpx.AsyncClient is shared across all requests to
+        reuse TCP connections and avoid per-request client overhead.
         Returns embeddings in the same order as the input dict.
         """
         url = f"{self._base_url}{NIM_FORWARD_ENDPOINT}"
@@ -133,25 +135,29 @@ class NIMBackend(Evo2Backend):
         completed = 0
         n_seqs = len(sequences)
 
-        async def extract_one(seq_id: str, sequence: str) -> np.ndarray:
+        async def extract_one(
+            client: httpx.AsyncClient, seq_id: str, sequence: str
+        ) -> np.ndarray:
             nonlocal completed
             async with semaphore:
                 embedding = await self._extract_single_async(
-                    url, seq_id, sequence, layer
+                    client, url, seq_id, sequence, layer
                 )
                 completed += 1
                 if completed % 50 == 0 or completed == n_seqs:
                     logger.info(f"  Progress: {completed}/{n_seqs} sequences")
                 return embedding
 
-        tasks = [
-            extract_one(seq_id, seq)
-            for seq_id, seq in sequences.items()
-        ]
-        return await asyncio.gather(*tasks)
+        async with httpx.AsyncClient(timeout=NIM_REQUEST_TIMEOUT) as client:
+            tasks = [
+                extract_one(client, seq_id, seq)
+                for seq_id, seq in sequences.items()
+            ]
+            return await asyncio.gather(*tasks)
 
     async def _extract_single_async(
         self,
+        client: httpx.AsyncClient,
         url: str,
         seq_id: str,
         sequence: str,
@@ -169,60 +175,59 @@ class NIMBackend(Evo2Backend):
 
         for attempt in range(self.MAX_RETRIES):
             try:
-                async with httpx.AsyncClient(timeout=NIM_REQUEST_TIMEOUT) as client:
-                    response = await client.post(url, json=payload, headers=headers)
+                response = await client.post(url, json=payload, headers=headers)
 
-                    if response.status_code == 200:
-                        return self._decode_response(response.json(), layer, seq_id)
+                if response.status_code == 200:
+                    return self._decode_response(response.json(), layer, seq_id)
 
-                    if response.status_code == 302:
-                        try:
-                            return await self._fetch_s3_result_async(
-                                client, response, layer, seq_id
-                            )
-                        except _S3ExpiredError:
-                            wait = self.RETRY_BACKOFF ** (attempt + 1)
-                            logger.warning(
-                                f"S3 URL expired for {seq_id}, re-requesting "
-                                f"in {wait:.1f}s "
-                                f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
-                            )
-                            await asyncio.sleep(wait)
-                            continue
-
-                    if response.status_code == 429:
+                if response.status_code == 302:
+                    try:
+                        return await self._fetch_s3_result_async(
+                            client, response, layer, seq_id
+                        )
+                    except _S3ExpiredError:
                         wait = self.RETRY_BACKOFF ** (attempt + 1)
-                        retry_after = response.headers.get("Retry-After")
-                        if retry_after:
-                            wait = max(wait, float(retry_after))
                         logger.warning(
-                            f"Rate limited on {seq_id}, retrying in {wait:.1f}s "
+                            f"S3 URL expired for {seq_id}, re-requesting "
+                            f"in {wait:.1f}s "
                             f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
                         )
                         await asyncio.sleep(wait)
                         continue
 
-                    if response.status_code in (502, 503):
-                        wait = self.RETRY_BACKOFF ** (attempt + 1)
-                        logger.warning(
-                            f"Server error ({response.status_code}) for {seq_id}, "
-                            f"retrying in {wait:.1f}s "
-                            f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
-                        )
-                        await asyncio.sleep(wait)
-                        continue
-
-                    if response.status_code == 422:
-                        raise ValueError(
-                            f"Sequence {seq_id} rejected by NIM API (422): "
-                            f"{response.text}. Sequence length: {len(sequence)} bp "
-                            f"(max: {NIM_MAX_SEQUENCE_LENGTH})."
-                        )
-
-                    raise RuntimeError(
-                        f"NIM API error for {seq_id}: "
-                        f"HTTP {response.status_code}: {response.text}"
+                if response.status_code == 429:
+                    wait = self.RETRY_BACKOFF ** (attempt + 1)
+                    retry_after = response.headers.get("Retry-After")
+                    if retry_after:
+                        wait = max(wait, float(retry_after))
+                    logger.warning(
+                        f"Rate limited on {seq_id}, retrying in {wait:.1f}s "
+                        f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
                     )
+                    await asyncio.sleep(wait)
+                    continue
+
+                if response.status_code in (502, 503):
+                    wait = self.RETRY_BACKOFF ** (attempt + 1)
+                    logger.warning(
+                        f"Server error ({response.status_code}) for {seq_id}, "
+                        f"retrying in {wait:.1f}s "
+                        f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+
+                if response.status_code == 422:
+                    raise ValueError(
+                        f"Sequence {seq_id} rejected by NIM API (422): "
+                        f"{response.text}. Sequence length: {len(sequence)} bp "
+                        f"(max: {NIM_MAX_SEQUENCE_LENGTH})."
+                    )
+
+                raise RuntimeError(
+                    f"NIM API error for {seq_id}: "
+                    f"HTTP {response.status_code}: {response.text}"
+                )
 
             except httpx.TransportError as e:
                 wait = self.RETRY_BACKOFF ** (attempt + 1)
@@ -385,9 +390,12 @@ class NIMBackend(Evo2Backend):
                     f"Replacing {n_count} N bases in {seq_id} "
                     f"({100 * n_count / len(seq):.1f}%)"
                 )
-                seq = "".join(
-                    random.choice("ACGT") if c == "N" else c for c in seq
-                )
+                bases = b"ACGT"
+                buf = bytearray(seq, "ascii")
+                for i in range(len(buf)):
+                    if buf[i] == 78:  # ord('N')
+                        buf[i] = bases[random.randint(0, 3)]
+                seq = buf.decode("ascii")
             sanitized[seq_id] = seq
         return sanitized
 

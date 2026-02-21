@@ -240,13 +240,12 @@ def _run_prediction(
         cache_dir=cache_path,
     )
 
-    # 3. Predict
+    # 3. Predict (single forward pass — argmax replaces separate predict call)
     probas = classifier.predict_proba(result.embeddings)
-    predictions = classifier.predict(result.embeddings)
 
     results = []
     for i, seq_id in enumerate(result.sequence_ids):
-        pred_idx = int(predictions[i])
+        pred_idx = int(np.argmax(probas[i]))
         pred_class = class_names[pred_idx] if pred_idx < len(class_names) else str(pred_idx)
         confidence = float(probas[i, pred_idx])
 

@@ -268,38 +268,32 @@ def _build_assignments(
     labels: np.ndarray,
 ) -> list[ClusterAssignment]:
     """Build ClusterAssignment objects with centroid distances and representatives."""
-    # Compute centroids per cluster
-    centroids = {}
-    for cluster_id in set(labels):
-        if cluster_id == -1:
-            continue
+    n = len(labels)
+    distances = np.zeros(n)
+
+    # Vectorized centroid distances per cluster
+    unique_labels = set(labels)
+    unique_labels.discard(-1)
+    closest: dict[int, int] = {}  # cluster_id -> index of closest sample
+
+    for cluster_id in unique_labels:
         mask = labels == cluster_id
-        centroids[cluster_id] = embeddings[mask].mean(axis=0)
+        centroid = embeddings[mask].mean(axis=0)
+        dists = np.linalg.norm(embeddings[mask] - centroid, axis=1)
+        distances[mask] = dists
+        # Find representative (closest to centroid)
+        local_idx = int(np.argmin(dists))
+        closest[cluster_id] = int(np.flatnonzero(mask)[local_idx])
 
-    assignments = []
-    # Track closest-to-centroid per cluster for representative flag
-    closest = {}  # cluster_id -> (min_dist, index)
-
-    for i, (seq_id, cluster_id) in enumerate(zip(sequence_ids, labels)):
-        if cluster_id == -1:
-            dist = 0.0
-        else:
-            diff = embeddings[i] - centroids[cluster_id]
-            dist = float(np.linalg.norm(diff))
-            if cluster_id not in closest or dist < closest[cluster_id][0]:
-                closest[cluster_id] = (dist, i)
-
-        assignments.append(
-            ClusterAssignment(
-                sequence_id=seq_id,
-                cluster_id=int(cluster_id),
-                is_representative=False,
-                distance_to_centroid=dist,
-            )
+    rep_indices = set(closest.values())
+    assignments = [
+        ClusterAssignment(
+            sequence_id=seq_id,
+            cluster_id=int(cluster_id),
+            is_representative=(i in rep_indices),
+            distance_to_centroid=float(distances[i]),
         )
-
-    # Mark representatives
-    for cluster_id, (_, idx) in closest.items():
-        assignments[idx].is_representative = True
+        for i, (seq_id, cluster_id) in enumerate(zip(sequence_ids, labels, strict=True))
+    ]
 
     return assignments

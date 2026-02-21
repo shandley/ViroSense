@@ -140,7 +140,9 @@ def fft_conv(u: mx.array, h: mx.array, d: mx.array | None = None) -> mx.array:
         Convolved signal, shape (B, D, L).
     """
     L = u.shape[-1]
-    n = 2 * L
+    # Snap FFT size to next power-of-2. Metal FFT has catastrophic perf
+    # at certain non-power-of-2 sizes (e.g. n=20000 is ~400x slower).
+    n = 1 << (2 * L - 1).bit_length()
 
     # Ensure h is 2D: (D_or_G, K)
     if h.ndim == 3:
@@ -167,8 +169,8 @@ def fft_conv(u: mx.array, h: mx.array, d: mx.array | None = None) -> mx.array:
         # H: (G, freq) -> (1, G, 1, freq) for broadcasting
         product = U_grouped * H[None, :, None, :]
         # irfft on last axis, then reshape back to (B, D, ...)
-        y_grouped = mx.fft.irfft(product, n=n, axis=-1)  # (B, G, repeats, 2L)
-        y = y_grouped.reshape(y_grouped.shape[0], -1, 2 * L)[..., :L]
+        y_grouped = mx.fft.irfft(product, n=n, axis=-1)  # (B, G, repeats, n)
+        y = y_grouped.reshape(y_grouped.shape[0], -1, n)[..., :L]
     else:
         y = mx.fft.irfft(U * H[None], n=n, axis=-1)[..., :L]
 
