@@ -1,0 +1,16 @@
+{
+  "description": "ViroSense 3-class viral-focused reference classifier training data",
+  "classes": {
+    "cellular": "3053 fragments (chromosomes + plasmids, downsampled)",
+    "phage": "3053 fragments (DNA phages + archaeal viruses)",
+    "rna_virus": "3053 fragments (RNA virus cDNA, RefSeq NC_)"
+  },
+  "label_encoding": {
+    "cellular": 0,
+    "phage": 1,
+    "rna_virus": 2
+  },
+  "source": "4-class data with chromosome+plasmid merged to cellular",
+  "seed": 42,
+  "total_fragments": 9159
+}

@@ -41,3 +41,32 @@ def filter_by_length(
     if n_removed:
         logger.info(f"Filtered {n_removed} sequences shorter than {min_length} bp")
     return filtered
+
+
+def write_fasta(
+    sequences: dict[str, str], path: str | Path, wrap: int = 80
+) -> Path:
+    """Write sequences to a FASTA file.
+
+    Args:
+        sequences: Dict mapping sequence ID to DNA sequence string.
+        path: Output file path.
+        wrap: Line width for sequence wrapping (0 = no wrapping).
+
+    Returns:
+        Path to the written file.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(path, "w") as f:
+        for seq_id, seq in sequences.items():
+            f.write(f">{seq_id}\n")
+            if wrap > 0:
+                for i in range(0, len(seq), wrap):
+                    f.write(seq[i : i + wrap] + "\n")
+            else:
+                f.write(seq + "\n")
+
+    logger.info(f"Wrote {len(sequences)} sequences to {path}")
+    return path

@@ -156,6 +156,7 @@ def _run_training(
 
     # 2. Extract embeddings
     evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
+    model = evo2_backend.model  # Use backend's (possibly auto-corrected) model name
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "
@@ -225,6 +226,7 @@ def _run_prediction(
         return
 
     evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
+    model = evo2_backend.model  # Use backend's (possibly auto-corrected) model name
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

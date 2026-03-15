@@ -1,6 +1,6 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-02-27
+Last updated: 2026-03-15
 
 ## Project Overview
 
@@ -40,7 +40,17 @@ The `annotate` module extends ViroSense from detection ("is this viral?") to fun
 See `annotate/README.md` for full integration plan.
 
 ### Key Constraint
-Evo2 requires NVIDIA GPU (H100/Ada+ with CUDA 12.1+ and FP8). Developer machine is Apple M4. Solution: backend abstraction with NVIDIA NIM API as default, plus MLX backend for local Apple Silicon inference.
+Evo2 requires NVIDIA GPU with FP8 support (L40S/H100/Ada+, NOT A100/V100). Developer machine is Apple M4. Solution: backend abstraction with NVIDIA NIM API as default, self-hosted NIM on HPC clusters, plus MLX backend for local Apple Silicon inference.
+
+### Two Model Tiers
+| | Evo2 40B (Cloud NIM) | Evo2 7B (Self-hosted / MLX) |
+|---|---|---|
+| Embedding dim | 8,192 | 4,096 |
+| Speed | ~27s/seq (rate-limited) | ~3.3s/seq (unlimited) |
+| GPU requirement | 2x H100 80GB | 1x L40S 48GB (or Apple Silicon) |
+| Best for | Publications, high-stakes | Screening, exploration, local dev |
+
+Classifiers are NOT interchangeable between tiers — each requires its own trained reference model. Cloud NIM always serves 40B; the NIM backend auto-corrects `--model` to `evo2_40b` for cloud usage. Benchmark results are stored in `data/reference/model/metrics.json` and script output directories.
 
 ## Architecture
 
@@ -110,7 +120,7 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - `features/evo2_embeddings.py` with incremental checkpointing (saves every 50 sequences)
 - Resume-capable: loads partial cache on restart, skips completed sequences
 - NPZ cache format, batch-based extraction
-- Embedding dimension: 8192 (Evo2 40B via NIM)
+- Embedding dimension: 8,192 (Evo2 40B via cloud NIM) or 4,096 (Evo2 7B via self-hosted NIM / MLX)
 
 ### Phase 4: detect module — COMPLETE
 - `ViralClassifier` sklearn MLP wrapper in `models/detector.py` (train/predict/save/load via joblib)
@@ -122,6 +132,7 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - `run_detect` pipeline: FASTA → filter → embeddings → classify → TSV
 - `build-reference` subcommand for training from labeled RefSeq data
 - Cold-start approach: ship reference model + custom training support
+- **L2-normalization**: Optional `--normalize-l2` flag on `build-reference` — eliminates length-dependent magnitude effects that cause RNA virus detection failure at longer lengths (34% → 99% recall at 10-16kb). Stored in classifier metadata; loaded models auto-apply correct preprocessing. See `docs/rna_virus_length_analysis.md`.
 
 ### Phase 5: vHold bridge — LEGACY (replaced by annotate module)
 - `features/prostt5_bridge.py` loads vHold NPZ embeddings and TSV annotations
@@ -135,7 +146,6 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - Auto-k estimation via elbow method (KMeans)
 - Centroid distances, representative selection, silhouette scoring
 - `run_cluster` pipeline: FASTA → Evo2 embeddings → optional vHold fusion → PCA → cluster → results
-- Validated on real gut virome: 9 biologically coherent clusters separating Caudoviricetes from novel viruses
 - 27 tests
 
 ### Phase 7: context module — COMPLETE
@@ -155,8 +165,6 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - Outputs: `prophage_windows.tsv`, `prophage_regions.tsv`, `prophage_regions.bed`, `prophage_summary.json`
 - BED output for genome browser visualization (IGV, UCSC)
 - Reuses `_load_classifier` from detect module, `extract_embeddings` with caching
-- Validated on Salmonella enterica (2 prophage regions: 11 kb + 19 kb) and Lelliottia amnigena (1 region: 41 kb)
-- Sharp boundary detection: scores transition 0.99→0.00 within a single window step
 
 ### Phase 10: adaptive prophage scanning — COMPLETE
 - Two-pass coarse→fine scanning (`--scan-mode adaptive`, default)
@@ -182,11 +190,22 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 - **Pending**: weight download, numerical validation against NIM, reference classifier retraining
 - Produces 4096-D embeddings (Evo2 7B) — different representations from NIM (Evo2 40B), requires separate reference classifier
 
+### Phase 12: HTCF deployment (self-hosted NIM) — COMPLETE
+- Self-hosted NIM Evo2 7B on HTCF (Washington University HPC cluster) via Apptainer
+- Container: `nvcr.io/nim/arc/evo2:2` converted to SIF with `/root` symlink workaround
+- GPU: L40S 48GB on n099 (only HTCF node with FP8 support, compute capability 8.9)
+- A100s (n095-n098) cannot run NIM Evo2 — FP8 requires cc 8.9+
+- Apptainer workarounds: `--writable-tmpfs` (read-only SIF), `--no-home` (20 GiB quota), explicit PATH/HOME env vars
+- NIM model profile `d14c09c133...` selects 7B variant (40B needs 3+ GPUs)
+- Scripts: `htcf/setup.sh` (one-time), `htcf/start_nim_server.sbatch` (SLURM job), `htcf/virosense_pipeline.sh` (orchestrator)
+- 3-class embedding cache and trained 7B classifiers on scratch
+
 ## Environment Variables
 
 | Variable | Purpose |
 |----------|---------|
-| `NVIDIA_API_KEY` | NIM API access |
+| `NVIDIA_API_KEY` | NIM API access (cloud and self-hosted first-run) |
+| `NGC_API_KEY` | NGC authentication for NIM model weight download (same as NVIDIA_API_KEY) |
 | `VIROSENSE_DATA_DIR` | Override ~/.virosense |
 | `VIROSENSE_CACHE_DIR` | Embedding cache location |
 
@@ -214,6 +233,10 @@ virosense build-reference -i labeled.fasta --labels labels.tsv -o model/ --insta
 | `src/virosense/subcommands/cluster.py` | Sequence clustering pipeline |
 | `src/virosense/subcommands/classify.py` | Classifier training/prediction pipeline |
 | `src/virosense/subcommands/build_reference.py` | Reference model builder |
+| `src/virosense/annotate/structure.py` | AlphaFold DB lookup + ColabFold prediction |
+| `src/virosense/annotate/foldseek.py` | Foldseek structural search against BFVD |
+| `src/virosense/annotate/foldmason.py` | FoldMason structural MSA |
+| `src/virosense/annotate/categories.py` | Functional classification (11 categories) |
 
 ## Development
 
@@ -230,205 +253,34 @@ uv run pytest tests/ -v
 
 # Run CLI
 uv run virosense --help
+
+# Self-hosted NIM (HTCF or any GPU server with L40S/H100/Ada)
+virosense detect -i contigs.fasta -o results/ --backend nim --nim-url http://<host>:8000
+
+# Train 7B classifier from cached embeddings
+uv run python scripts/train_binary_from_cache.py \
+    --cache embeddings.npz --labels labels.tsv --output model/ --install
 ```
 
-## Benchmarks
+## Available Datasets (not in git)
 
-### Reference Classifier
-- Trained on 6,158 RefSeq fragments (3,105 viral + 3,053 cellular), prophage-filtered
-- Training accuracy: 99.0%, CV accuracy: 97.8%, CV AUC: 0.998
+| Dataset | Location | Description |
+|---------|----------|-------------|
+| RNA Virus Database | `data/reference/rna_viruses/RNA_virus_database.fasta` | 385,732 RNA virus sequences (NCBI + RVMT + terrestrial) |
+| Gauge Your Phage - Phage | `data/benchmarks/gauge_your_phage/phage_fragment_set.fasta` | 6,664 phage fragments (1-15 kbp) |
+| Gauge Your Phage - Chromosome | `data/benchmarks/gauge_your_phage/host_chr_pvog_fragments.fasta` | 104,003 chromosome fragments |
+| Gauge Your Phage - Plasmid | `data/benchmarks/gauge_your_phage/host_plasmid_pvog_fragments.fasta` | 2,754 plasmid fragments |
 
-### Head-to-head vs geNomad v1.11.2
-
-| Dataset | Metric | ViroSense | geNomad |
-|---------|--------|-----------|---------|
-| Simulated (200 RefSeq) | Accuracy | 96.0% | 84.0% |
-| | Precision | 95.1% | 96.0% |
-| | Recall | 97.0% | 71.0% |
-| | F1 | 96.0% | 81.6% |
-| Gut virome (CheckV truth) | Sensitivity | 98.6% | 47.9% |
-
-ViroSense's composition-based approach detects viral sequences that gene-dependent tools miss, especially short fragments and novel viruses lacking recognizable marker genes.
-
-### Comparison vs Published Tools on Gauge Your Phage Benchmark
-
-GYP RefSeq Artificial Contigs dataset (Ho et al., Microbiome 2023): 6,664 phage + 104,003 chromosome + 2,754 plasmid fragments, 1-15 kbp. ViroSense results from stratified 1,200-sequence sample of same dataset.
-
-| Tool | Precision | Recall | F1 | Notes |
-|------|-----------|--------|-----|-------|
-| **ViroSense** | **0.92** | **0.99** | **0.96** | Evo2 embeddings, composition-based |
-| VirSorter2 | 0.92 | 0.93 | 0.93 | Gene + composition hybrid |
-| VIBRANT | 0.97 | 0.89 | 0.93 | Gene-based (requires >=4 ORFs) |
-| PPR-Meta | 0.88 | 0.96 | 0.92 | Deep learning |
-| DeepVirFinder | 0.85 | 0.89 | 0.87 | k-mer composition |
-| Kraken2 | ~1.00 | ~0.85 | 0.87 | k-mer taxonomy |
-| MetaPhinder | 0.85 | 0.83 | 0.84 | BLAST homology |
-| VirFinder | 0.82 | 0.85 | 0.83 | k-mer composition |
-| VirSorter | 0.80 | 0.82 | 0.81 | Gene-based |
-| Seeker | 0.48 | 0.41 | 0.45 | LSTM |
-
-**ViroSense achieves the highest F1 (0.96) and recall (0.99) on this benchmark.** Precision matches VirSorter2 (0.92); the gap vs VIBRANT's precision (0.97) is due to plasmid false positives. geNomad and PhaMer/PhaBOX were not tested in the original GYP study.
-
-**Key differentiators:**
-- **Highest recall**: 0.994 — misses only 3/500 phages (an archaeal pleomorphic virus, a host-ameliorated temperate phage, and a borderline short fragment)
-- **Length-independent**: >99% sensitivity from 1kb to 15kb (composition-based tools like DeepVirFinder also show this; gene-based tools like VIBRANT/VirSorter2 degrade on short fragments)
-- **Zero-shot RNA virus generalization**: No other tool on this list can detect eukaryotic RNA viruses without retraining
-- **Precision limited by plasmid FPs**: 41/200 plasmids called viral — the same biological ambiguity that affects all composition-based tools
-
-**GYP Mock Community caveat:** Published tools showed 40.6% mean F1 drop on real metagenomic data vs RefSeq benchmark (best: Kraken2 at F1=0.86, most tools F1<0.50). ViroSense has not been tested on the GYP mock community.
-
-### RNA Virus Embedding Experiment (Evo2 40B via NIM)
-
-Tested whether Evo2 embeddings discriminate eukaryotic RNA viruses (as cDNA) from cellular DNA, despite eukaryotic viruses being deliberately excluded from Evo2 training (biosecurity).
-
-**Sequences tested** (11 total, ~5kb fragments):
-- Eukaryotic RNA viruses (cDNA): SARS-CoV-2, HIV-1, Influenza A, HCV
-- DNA bacteriophages (positive control): T4, Lambda, P22
-- Bacteria (negative control): E. coli, B. subtilis
-- Eukaryotic DNA viruses (also excluded): HSV-1, Vaccinia
-
-**Cosine similarity results:**
-
-| Comparison | Mean Cosine Sim |
-|---|---|
-| RNA viruses (within-group) | 0.818 |
-| RNA viruses ↔ Euk DNA viruses | 0.722 |
-| Phages ↔ Bacteria | 0.643 |
-| RNA viruses ↔ Phages | 0.379 |
-| RNA viruses ↔ Bacteria | **0.229** |
-
-**PCA analysis** (PC1=59.5%, PC2=23.0%, total 83%):
-- **PC1 is a viral↔cellular axis**: all viruses (RNA, DNA phage, eukaryotic DNA) on one side, bacteria on the other
-- **PC2 separates by composition**: AT-rich viruses (T4, Vaccinia, SARS-CoV-2) vs GC-rich (HCV, HSV-1)
-- Lambda/P22 are intermediate — compositionally ameliorated toward their bacterial hosts
-
-**Key findings:**
-1. Evo2 embeddings carry strong discriminative signal for eukaryotic RNA viruses despite training exclusion
-2. T4 phage clusters with eukaryotic viruses (AT-rich, modified bases), not with temperate phages — Evo2 captures base modification signatures
-3. Temperate phages (Lambda, P22) are the hardest to distinguish from bacteria (cos sim 0.87 with E. coli)
-4. HCV↔HSV-1 similarity (0.919) transcends Baltimore class — driven by shared GC-rich composition
-5. A classifier trained only on phages + bacteria should generalize to eukaryotic viruses — they occupy the same compositional region of embedding space
-
-**Implications:**
-- ViroSense detection may work on metatranscriptomic (RNA virus cDNA) data without retraining
-- Multi-class classification (lytic phage, temperate phage, euk RNA virus, euk DNA virus, cellular) is feasible
-- The hardest detection boundary is temperate phage vs host, not RNA virus vs cellular
-
-### Reference Classifier on Eukaryotic Viruses (zero-shot generalization)
-
-Tested the existing reference classifier (trained only on prokaryotic phages + bacteria) on the RNA virus experiment embeddings. **11/11 correct (100%):**
-
-| Sequence | Category | P(viral) | Correct |
-|---|---|---|---|
-| SARS-CoV-2 ORF1a | Euk RNA virus (cDNA) | 1.0000 | YES |
-| HIV-1 gag-pol | Euk RNA virus (cDNA) | 0.9557 | YES |
-| Influenza A PB2 | Euk RNA virus (cDNA) | 0.9997 | YES |
-| HCV NS3-NS5 | Euk RNA virus (cDNA) | 1.0000 | YES |
-| T4 gene23 | DNA phage | 0.9999 | YES |
-| Lambda CI-N | DNA phage | 0.9965 | YES |
-| P22 tailspike | DNA phage | 0.9995 | YES |
-| E. coli rpoB | Bacteria | 0.0004 | YES |
-| B. subtilis sporulation | Bacteria | 0.0000 | YES |
-| HSV-1 UL30 | Euk DNA virus | 0.9821 | YES |
-| Vaccinia F13L | Euk DNA virus | 0.9621 | YES |
-
-**The classifier generalizes to eukaryotic viruses (RNA and DNA) with zero retraining.** Metatranscriptomic data (RNA virus cDNA) can be fed directly to `virosense detect`.
-
-### RNA Virus Zero-Shot Validation (200 RNA viruses + 200 cellular)
-
-Tested reference classifier (trained only on phages + bacteria) on eukaryotic RNA viruses (cDNA from NCBI RefSeq). All sequences sent through NIM API for Evo2 40B embedding extraction.
-
-| Metric | Value |
-|--------|-------|
-| Overall accuracy | 93.8% |
-| RNA virus sensitivity | 89.0% |
-| Cellular specificity | 98.5% |
-| F1 score | 0.934 |
-| AUC | 0.994 |
-| Precision (viral) | 98.3% |
-| False negatives | 22/200 |
-| False positives | 3/200 |
-
-**Per-length-bin RNA virus sensitivity:**
-
-| Length bin | Sensitivity | Mean score | N |
-|-----------|-------------|------------|---|
-| 500-1000 bp | 77.5% | 0.726 | 40 |
-| 1000-3000 bp | 80.0% | 0.828 | 40 |
-| 3000-5000 bp | 92.5% | 0.926 | 40 |
-| 5000-10000 bp | 97.5% | 0.952 | 40 |
-| 10000-16000 bp | 97.5% | 0.957 | 40 |
-
-**Key findings:**
-- Sensitivity scales strongly with sequence length (77.5% at <1kb to 97.5% at >5kb)
-- AUC of 0.994 indicates near-perfect separability — most errors are threshold-dependent, not embedding failures
-- False negatives are concentrated in short (<3kb) fragments: 17/22 FN are <3kb (mean 2,224 bp vs 5,592 bp for true positives)
-- Only 3 false positives out of 200 cellular sequences (all 500bp fragments)
-- Zero-shot generalization works: no RNA virus training data needed
-
-**Error analysis — false negative categories:**
-1. **Retroviruses with cellular oncogenes** (2 sequences, scores 0.00-0.02): Harvey murine sarcoma virus (v-Has) and avian myelocytomatosis virus (v-Myc) carry captured host genes — compositionally chimeric. The classifier correctly detects that these sequences contain host-derived DNA.
-2. **Individual segments of segmented RNA viruses** (~15 sequences, scores 0.04-0.49): Single segments of reoviruses, bunyaviruses, orbiviruses, and emaraviruses at 500-1800 bp. Insufficient compositional signal in short individual segments.
-3. **Borderline cases** (7 sequences, scores 0.40-0.50): Would be rescued by lowering threshold to 0.40 with zero additional false positives.
-
-**Threshold analysis:** Lowering threshold from 0.50 to 0.40 improves sensitivity from 89.0% to 92.5% with no change in specificity (98.5%). The score distribution is bimodal — cellular sequences cluster below 0.10 (99.5%) while most RNA viruses score above 0.30 (92.5%).
-
-### Gauge Your Phage Benchmark (500 phage + 500 chromosome + 200 plasmid)
-
-Community-standard benchmark for phage detection tools. Pre-fragmented 1-15 kbp contigs, stratified sample of 1,200 sequences across 4 length bins.
-
-**Binary classification (phage vs non-viral):**
-
-| Metric | Value |
-|--------|-------|
-| Overall accuracy | 96.2% |
-| Phage sensitivity | 99.4% (497/500) |
-| Chromosome specificity | 99.6% (498/500) |
-| Precision | 92.0% |
-| F1 score | 0.956 |
-| AUC | 0.997 |
-
-**Per-length-bin phage sensitivity:**
-
-| Length | Sensitivity | Mean score |
-|--------|-------------|------------|
-| 1-3kb | 99.2% | 0.994 |
-| 3-5kb | 99.2% | 0.991 |
-| 5-10kb | 100.0% | 0.999 |
-| 10-15kb | 99.2% | 0.990 |
-
-**Phage detection is near-perfect across all length bins.** Unlike RNA viruses, phages are within the training domain — the classifier was trained on phage fragments. Sensitivity is uniformly >99% from 1kb to 15kb.
-
-**Plasmid false positive analysis:**
-- 41/200 plasmids (20.5%) classified as viral — the primary source of false positives
-- Plasmid mean viral score: 0.203 (most score low, but some score very high)
-- Many high-scoring plasmids carry phage-derived genes (conjugation machinery, anti-restriction)
-- Chromosome FP rate is only 0.4% — plasmids are the hard boundary, not chromosomes
-
-**Only 3 phage false negatives:**
-1. Haloarcula hispanica pleomorphic virus 4 (score 0.015) — archaeal pleomorphic virus, highly unusual morphology
-2. Leptospira biflexa temperate phage LE1 (score 0.258) — host-ameliorated temperate phage
-3. Mycobacterium phage Pippy fragment (score 0.459) — borderline, short 2.7kb fragment
-
-**Threshold sweep (F1 optimization):**
-- F1 peaks at threshold 0.9 (F1=0.970, sens=98.8%, spec=96.4%)
-- Raising threshold from 0.5 to 0.8 eliminates 12 plasmid FPs while losing zero phages
-- At threshold 0.5: best sensitivity (99.4%), at threshold 0.9: best F1 (0.970)
-
-### Validation Datasets (downloaded, not in git)
-
-| Dataset | Location | Size | Sequences |
-|---------|----------|------|-----------|
-| RNA Virus Database | `data/reference/rna_viruses/RNA_virus_database.fasta` | 1.1 GB | 385,732 (6,621 NCBI + 378K RVMT + 858 terrestrial) |
-| Gauge Your Phage - Phage | `data/benchmarks/gauge_your_phage/phage_fragment_set.fasta` | 54 MB | 6,664 phage fragments (1-15 kbp) |
-| Gauge Your Phage - Chromosome | `data/benchmarks/gauge_your_phage/host_chr_pvog_fragments.fasta` | 844 MB | 104,003 chromosome fragments |
-| Gauge Your Phage - Plasmid | `data/benchmarks/gauge_your_phage/host_plasmid_pvog_fragments.fasta` | 22 MB | 2,754 plasmid fragments |
+Benchmark results are stored in script output directories and `data/reference/model/metrics.json`, not in this file.
 
 ## Scripts
 
 | Script | Purpose |
 |--------|---------|
 | `scripts/prepare_reference_data.py` | Download + fragment RefSeq genomes for training |
+| `scripts/prepare_reference_data_3class.py` | Prepare 3-class (chromosome/plasmid/viral) reference data |
+| `scripts/prepare_reference_data_4class.py` | Prepare 4-class reference data |
+| `scripts/train_binary_from_cache.py` | Train binary classifier from cached 7B embeddings |
 | `scripts/validate_model.py` | Cross-validation, hard examples, misclassification analysis |
 | `scripts/filter_prophage_noise.py` | Post-hoc prophage contamination detection |
 | `scripts/compare_genomad.py` | Head-to-head ViroSense vs geNomad comparison |
@@ -436,6 +288,11 @@ Community-standard benchmark for phage detection tools. Pre-fragmented 1-15 kbp 
 | `scripts/download_evo2_weights.py` | Download Evo2 7B weights from HuggingFace for MLX backend |
 | `scripts/validate_rna_viruses.py` | Zero-shot RNA virus validation (classifier generalization) |
 | `scripts/benchmark_gauge_your_phage.py` | Gauge Your Phage community benchmark (phage/chr/plasmid) |
+| `scripts/benchmark_unified.py` | Unified benchmark runner (GYP + RNA virus, 7B/40B, manifest-based) |
+| `scripts/analyze_rna_length.py` | RNA virus length-dependent detection diagnostics (PCA, cosine sim, norms) |
+| `htcf/setup.sh` | One-time HTCF setup: uv, ViroSense, NIM container pull |
+| `htcf/start_nim_server.sbatch` | SLURM job: NIM Evo2 7B server on L40S GPU |
+| `htcf/virosense_pipeline.sh` | Orchestrator: start NIM → wait → run ViroSense → cleanup |
 
 ## Performance / Speed
 
@@ -479,27 +336,45 @@ Docker: `nvcr.io/nim/arc/evo2:2` — API differs from cloud.
 - Concurrency: L40S 7B handles ~2 concurrent requests (returns "Too Busy" beyond that)
 - 54 NIM backend tests including self-hosted mode
 
-### Benchmark Numbers
-**Measured (self-hosted NIM 7B on L40S 48GB, HTCF):**
+### HTCF Deployment
+Self-hosted NIM running on Washington University HTCF cluster via Apptainer.
 
-| Sequence Length | Wall Time | Server Time |
-|----------------|-----------|-------------|
-| 100bp | 0.4s | 0.4s |
-| 500bp | 1.7s | 1.6s |
-| 1000bp | 3.8s | 3.7s |
-| 2000bp | 6.7s | 6.4s |
-| 5000bp | 16.6s | 15.8s |
-| 8000bp | 27.6s | 25.9s |
-| 10000bp | 33.2s | 31.6s |
+**Infrastructure:**
+- Login: `ssh shandley@login.htcf.wustl.edu`
+- GPU: L40S 48GB on n099 (only FP8-capable node; A100/V100 nodes cannot run NIM Evo2)
+- Filesystem: scratch (`/scratch/sahlab/shandley`, 2 TiB) for everything large; home is only 20 GiB
 
-**NVIDIA official throughput (generation, not embedding):**
+**HTCF Paths:**
+| Path | Contents |
+|------|----------|
+| `/scratch/sahlab/shandley/virosense/ViroSense/` | ViroSense installation |
+| `/scratch/sahlab/shandley/containers/evo2_nim.sif` | NIM Apptainer container |
+| `/scratch/sahlab/shandley/containers/nim_cache/` | NIM model weight cache (~13 GB) |
+| `/scratch/sahlab/shandley/virosense/embedding_cache_3class/` | 9,159 x 4,096 cached embeddings (145 MB) |
+| `/scratch/sahlab/shandley/virosense/model_binary_7b/` | Binary classifier (with plasmid) |
+| `/scratch/sahlab/shandley/virosense/model_binary_7b_noplasmid/` | Binary classifier (no plasmid) |
+| `results/benchmark/cache_7b/` (on ViroSense) | 13,417 x 4,096 full GYP+RNA benchmark embeddings |
+| `results/benchmark/7b_16kb/` (on ViroSense) | 7B benchmark results + RNA analysis |
+| `results/classifiers/7b_16kb/` (on ViroSense) | 7B binary classifier for benchmark |
 
-| Model | GPU | Throughput |
-|-------|-----|------------|
-| 40B | 2x H100 80GB | 26 nt/sec |
-| 40B | 1x H200 141GB | 33 nt/sec |
-| 7B | 1x H100 80GB | 45 nt/sec |
-| 7B | 1x H200 141GB | 52 nt/sec |
+**Apptainer workarounds (documented in `htcf/` scripts):**
+1. `/root` symlink in NIM Docker image breaks Apptainer build → `--no-cleanup`, fix rootfs, rebuild SIF
+2. Read-only SIF filesystem → `--writable-tmpfs`
+3. No Docker ENTRYPOINT in SIF → `apptainer exec` with explicit `bash /opt/nim/start_server.sh`
+4. Missing Docker ENV → explicit `--env PATH=...`
+5. Home mount quota → `--no-home` + `--env HOME=/opt/nim/.cache`
+6. NGC auth for weights → export `NGC_API_KEY` before `sbatch`
+
+**Usage:**
+```bash
+# One-time setup (GPU node required for Apptainer)
+export NVIDIA_API_KEY='nvapi-...'
+sbatch htcf/setup.sh
+
+# Run pipeline (starts NIM, waits, runs ViroSense, cleans up)
+export NGC_API_KEY='nvapi-...'
+bash htcf/virosense_pipeline.sh detect -i contigs.fasta -o results/
+```
 
 ## Future Work / Notes
 
@@ -513,15 +388,24 @@ Docker: `nvcr.io/nim/arc/evo2:2` — API differs from cloud.
 - **CLI wiring** (PENDING): Wire `virosense annotate` and `virosense run` subcommands.
 - **Design doc**: `annotate/README.md`
 
+### Benchmark Status (2026-03-15)
+- **7B GYP benchmark**: COMPLETE (13,417 sequences via HTCF NIM). Results: 93.0% accuracy, 95.75% phage sensitivity, 98.2% chromosome specificity, 82.5% plasmid specificity, 63.1% RNA virus recall (without L2-norm). With L2-normalization retrain: 92.5% RNA recall. See `docs/rna_virus_length_analysis.md`.
+- **40B GYP benchmark**: IN PROGRESS (~83% complete, running via cloud NIM). 11,183/13,417 classified.
+- **L2-normalization fix**: IMPLEMENTED. Eliminates length-dependent RNA virus failure. Retrain with `--normalize-l2` needed for production classifiers.
+
 ### Existing planned work
-- **RNA virus / metatranscriptomics support**: Validated — classifier achieves 89% sensitivity / 99.4% AUC on 200 RNA virus RefSeq sequences with zero retraining. Short fragments (<3kb) are the main challenge (77-80% sensitivity). Consider: (1) including RNA virus cDNA in training data to boost short-fragment sensitivity, (2) adding metatranscriptomics to supported input types in documentation.
-- **Multi-class viral classification**: Embeddings naturally separate lytic phage, temperate phage, eukaryotic RNA virus, eukaryotic DNA virus, and cellular. Train a multi-class classifier for virus type identification.
-- **MLX backend optimization**: Current 62s/5kb sequence. Replace Python conv loops with vectorized MLX ops or mx.conv1d for ~3-5x speedup.
-- **MLX numerical validation**: Compare MLX (7B) vs NIM (40B) embeddings on same sequences. Retrain reference classifier on 7B embeddings.
+- **Retrain official classifiers with L2-norm**: Both 7B and 40B classifiers need retraining with `--normalize-l2` for production use
+- **Complete 40B GYP benchmark**: ~17% remaining, then repeat L2-norm analysis for 40B comparison
+- **Improve 7B classifier**: Larger/more diverse training set, hyperparameter tuning, ensemble methods
+- **RNA virus / metatranscriptomics support**: L2-normalization dramatically improves RNA virus detection. Consider including RNA virus cDNA in training data for further gains (especially short fragments <1kb).
+- **Multi-class viral classification**: Train a multi-class classifier for virus type identification (lytic phage, temperate phage, euk RNA virus, euk DNA virus, cellular)
+- **MLX backend optimization**: Replace Python conv loops with vectorized MLX ops or mx.conv1d
+- **MLX numerical validation**: Compare MLX (7B) vs NIM (7B self-hosted) embeddings on same sequences
 - **UHGV** (Unified Human Gut Virome Catalog): 873K virus genomes / 168K vOTUs. Potential benchmarking resource.
 - **Prophage benchmark**: Validate against PHASTER/PhiSpy on curated prophage datasets
-- **Methods paper**: Novel DNA foundation model approach to viral detection. RNA virus generalization is a strong differentiating result. Annotate module adds end-to-end story.
-- **RNA foundation models**: AIDO.RNA (1.6B, 2048-D), RiNALMo (650M, 1280-D) as alternative backends for RNA-specific tasks. LucaOne (1.8B, unified DNA/RNA/protein) as potential single-model solution.
+- **Methods paper**: Novel DNA foundation model approach to viral detection
+- **RNA foundation models**: AIDO.RNA, RiNALMo, LucaOne as alternative backends for RNA-specific tasks
+- **Biosurveillance research**: Perplexity forensics, distilled models, anomaly detection. See `docs/biosurveillance_research_plan.md`.
 
 ## Biosecurity Note
 

@@ -1,0 +1,21 @@
+{
+  "description": "ViroSense 3-class reference classifier training data",
+  "classes": {
+    "viral": "3053 fragments (DNA phages + archaeal viruses)",
+    "chromosome": "3053 fragments (bacteria + archaea)",
+    "plasmid": "3053 fragments (bacterial plasmids, RefSeq)"
+  },
+  "label_encoding": {
+    "chromosome": 0,
+    "plasmid": 1,
+    "viral": 2
+  },
+  "plasmid_source": {
+    "query": "plasmid[Title] AND \"complete sequence\"[Title] AND refseq[filter] AND 2000:500000[SLEN] AND bacteria[Organism]",
+    "n_genomes_downloaded": 350,
+    "n_fragments_raw": 3094
+  },
+  "viral_cellular_source": "Existing 2-class reference data (prophage-filtered)",
+  "seed": 42,
+  "total_fragments": 9159
+}

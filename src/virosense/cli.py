@@ -22,10 +22,11 @@ def main():
               help="Input FASTA file with metagenomic contigs")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory")
-@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
               default="nim", help="Evo2 inference backend (default: nim)")
-@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b"]),
-              default="evo2_7b", help="Evo2 model (default: evo2_7b)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
 @click.option("--threshold", default=0.5, type=float,
               help="Viral classification threshold (default: 0.5)")
 @click.option("--min-length", default=500, type=int,
@@ -40,11 +41,19 @@ def main():
               help="Directory to cache embeddings")
 @click.option("--nim-url", default=None,
               help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
+@click.option("--max-concurrent", default=None, type=int,
+              help="Max concurrent NIM requests (default: 3 cloud, unlimited self-hosted)")
+@click.option("--classifier-model", type=click.Path(exists=True),
+              default=None,
+              help="Pre-trained classifier model (default: reference model)")
 def detect(input_file, output, backend, model, threshold,
-           min_length, batch_size, threads, layer, cache_dir, nim_url):
+           min_length, batch_size, threads, layer, cache_dir, nim_url,
+           max_concurrent, classifier_model):
     """Detect viral sequences in metagenomic contigs.
 
-    Uses Evo2 DNA embeddings to classify contigs as viral or cellular.
+    Uses Evo2 DNA embeddings to classify contigs. Supports 2-class
+    (viral/cellular) and 3-class (viral/chromosome/plasmid) models
+    automatically based on the installed reference classifier.
     """
     from virosense.subcommands.detect import run_detect
     run_detect(
@@ -55,10 +64,11 @@ def detect(input_file, output, backend, model, threshold,
         threshold=threshold,
         min_length=min_length,
         batch_size=batch_size,
-        threads=threads,
         layer=layer,
         cache_dir=cache_dir,
         nim_url=nim_url,
+        max_concurrent=max_concurrent,
+        classifier_model=classifier_model,
     )
 
 
@@ -70,10 +80,11 @@ def detect(input_file, output, backend, model, threshold,
               help="ORF predictions (GFF3, prodigal, or FASTA)")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory")
-@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
               default="nim", help="Evo2 inference backend (default: nim)")
-@click.option("--model", default="evo2_7b",
-              help="Evo2 model (default: evo2_7b)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
 @click.option("--window", default=2000, type=int,
               help="Genomic context window size in bp (default: 2000)")
 @click.option("--vhold-output", type=click.Path(),
@@ -115,10 +126,11 @@ def context(input_file, orfs, output, backend, model, window,
               help="Input FASTA of unclassified viral sequences")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory")
-@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
               default="nim", help="Evo2 inference backend (default: nim)")
-@click.option("--model", default="evo2_7b",
-              help="Evo2 model (default: evo2_7b)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
 @click.option("--mode", type=click.Choice(["dna", "protein", "multi"]),
               default="multi",
               help="Embedding modality for clustering (default: multi)")
@@ -176,10 +188,11 @@ def cluster(input_file, output, backend, model, mode, algorithm,
               help="TSV file with sequence_id and label columns")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory for model and predictions")
-@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
               default="nim", help="Evo2 inference backend (default: nim)")
-@click.option("--model", default="evo2_7b",
-              help="Evo2 model for embeddings (default: evo2_7b)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
 @click.option("--task", type=click.Choice(["viral_vs_cellular", "family", "host"]),
               default="viral_vs_cellular",
               help="Classification task (default: viral_vs_cellular)")
@@ -232,10 +245,11 @@ def classify(input_file, labels, output, backend, model, task,
               help="Input FASTA of bacterial chromosomes/contigs")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory")
-@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
               default="nim", help="Evo2 inference backend (default: nim)")
-@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b"]),
-              default="evo2_7b", help="Evo2 model (default: evo2_7b)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
 @click.option("--threshold", default=0.5, type=float,
               help="Viral score threshold (default: 0.5)")
 @click.option("--window-size", default=5000, type=int,
@@ -313,13 +327,14 @@ def prophage(input_file, output, backend, model, threshold,
               type=click.Path(exists=True),
               help="Input FASTA with labeled viral + cellular sequences")
 @click.option("--labels", required=True, type=click.Path(exists=True),
-              help="TSV file: sequence_id<tab>label (0=cellular, 1=viral)")
+              help="TSV file: sequence_id<tab>label (integer: 0/1, or string: viral/chromosome/plasmid)")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory for model and metrics")
-@click.option("--backend", type=click.Choice(["local", "nim", "modal"]),
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
               default="nim", help="Evo2 inference backend (default: nim)")
-@click.option("--model", default="evo2_7b",
-              help="Evo2 model (default: evo2_7b)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
 @click.option("--layer", default="blocks.28.mlp.l3",
               help="Evo2 layer for embedding extraction")
 @click.option("--epochs", default=200, type=int,
@@ -336,16 +351,22 @@ def prophage(input_file, output, backend, model, threshold,
               help="Directory to cache embeddings")
 @click.option("--nim-url", default=None,
               help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
+@click.option("--max-concurrent", default=None, type=int,
+              help="Max concurrent NIM requests (default: 3 cloud, unlimited self-hosted)")
+@click.option("--normalize-l2", is_flag=True, default=False,
+              help="L2-normalize embeddings before classification (recommended for RNA virus detection)")
 def build_reference(input_file, labels, output, backend, model, layer,
                     epochs, lr, val_split, install, batch_size, cache_dir,
-                    nim_url):
+                    nim_url, max_concurrent, normalize_l2):
     """Build a reference classifier for viral detection.
 
-    Takes a FASTA file of labeled viral and cellular sequences plus a
-    labels TSV, extracts Evo2 embeddings, and trains a classifier.
+    Takes a FASTA file of labeled sequences plus a labels TSV, extracts
+    Evo2 embeddings, and trains a classifier. Supports both 2-class
+    (viral/cellular) and 3-class (viral/chromosome/plasmid) training.
 
     The labels file should be tab-separated with two columns:
-    sequence_id and label (0 for cellular, 1 for viral).
+    sequence_id and label. Labels can be integers (0=cellular, 1=viral)
+    or strings (e.g. "chromosome", "plasmid", "viral").
     """
     from virosense.subcommands.build_reference import run_build_reference
     run_build_reference(
@@ -362,4 +383,6 @@ def build_reference(input_file, labels, output, backend, model, layer,
         batch_size=batch_size,
         cache_dir=cache_dir,
         nim_url=nim_url,
+        max_concurrent=max_concurrent,
+        normalize_l2=normalize_l2,
     )

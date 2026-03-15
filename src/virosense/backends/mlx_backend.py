@@ -44,6 +44,7 @@ class MLXBackend(Evo2Backend):
         model_dir: str | None = None,
         quantize: int | None = 4,
     ):
+        self.model = model
         self.model_name = model
         self._model_dir = model_dir or str(MLX_MODEL_DIR)
         self._quantize = quantize

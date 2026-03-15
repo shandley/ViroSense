@@ -254,6 +254,8 @@ def score_windows(
 ) -> list[WindowResult]:
     """Score genomic windows using a trained viral classifier.
 
+    Supports both 2-class and 3-class models via shared classification logic.
+
     Args:
         embeddings: (N, embed_dim) embedding matrix.
         sequence_ids: Ordered sequence IDs from embedding extraction.
@@ -266,13 +268,23 @@ def score_windows(
     """
     import warnings
 
+    from virosense.models.detector import (
+        _classify_from_probas,
+        _compute_viral_score,
+        _get_viral_indices,
+    )
+
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*matmul.*", category=RuntimeWarning)
         probas = classifier.predict_proba(embeddings)
 
-    # Viral class is the last class (index 1 for binary)
-    viral_idx = probas.shape[1] - 1
-    viral_scores = probas[:, viral_idx]
+    class_names = classifier.metadata.get("class_names", [])
+    viral_indices = _get_viral_indices(class_names)
+    viral_scores = (
+        np.sum(probas[:, viral_indices], axis=1)
+        if viral_indices
+        else probas[:, -1]
+    )
 
     # Build lookup from window_id -> metadata
     meta_lookup = {m["window_id"]: m for m in window_metadata}
@@ -280,12 +292,7 @@ def score_windows(
     results = []
     for i, seq_id in enumerate(sequence_ids):
         score = float(viral_scores[i])
-        if score >= threshold:
-            classification = "viral"
-        elif score <= (1.0 - threshold):
-            classification = "cellular"
-        else:
-            classification = "ambiguous"
+        classification = _classify_from_probas(probas[i], threshold, class_names)
 
         meta = meta_lookup[seq_id]
         results.append(WindowResult(
@@ -297,12 +304,12 @@ def score_windows(
             classification=classification,
         ))
 
-    n_viral = sum(1 for r in results if r.classification == "viral")
-    n_cellular = sum(1 for r in results if r.classification == "cellular")
-    n_ambiguous = sum(1 for r in results if r.classification == "ambiguous")
+    from collections import Counter
+
+    counts = Counter(r.classification for r in results)
+    parts = [f"{counts.get(c, 0)} {c}" for c in sorted(counts)]
     logger.info(
-        f"Window scoring: {n_viral} viral, {n_cellular} cellular, "
-        f"{n_ambiguous} ambiguous (threshold={threshold})"
+        f"Window scoring: {', '.join(parts)} (threshold={threshold})"
     )
     return results
 

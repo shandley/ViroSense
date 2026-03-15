@@ -75,6 +75,7 @@ def run_prophage(
 
     # 2. Clamp window sizes to backend limit
     evo2_backend = get_backend(backend, api_key=None, model=model, nim_url=nim_url)
+    model = evo2_backend.model  # Use backend's (possibly auto-corrected) model name
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

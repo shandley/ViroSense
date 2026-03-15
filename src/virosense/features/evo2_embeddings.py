@@ -75,7 +75,11 @@ def extract_embeddings(
         batch_seqs = {k: uncached[k] for k in batch_keys}
 
         request = EmbeddingRequest(sequences=batch_seqs, layer=layer, model=model)
-        batch_result = backend.extract_embeddings(request)
+        try:
+            batch_result = backend.extract_embeddings(request)
+        except RuntimeError as e:
+            logger.warning(f"Batch failed ({len(batch_keys)} seqs): {e} — skipping")
+            continue
 
         _save_shard(batch_result, main_path, shard_idx)
         shard_idx += 1
@@ -249,10 +253,19 @@ def _load_ordered(
 
     cached_embeddings = np.vstack(all_embeddings)
     id_to_idx = {sid: i for i, sid in enumerate(all_ids)}
-    indices = [id_to_idx[sid] for sid in requested_ids]
+
+    # Filter to only IDs that exist in cache (some may have failed extraction)
+    found_ids = [sid for sid in requested_ids if sid in id_to_idx]
+    n_missing = len(requested_ids) - len(found_ids)
+    if n_missing > 0:
+        logger.warning(
+            f"{n_missing}/{len(requested_ids)} sequences missing from cache "
+            f"(failed extraction) — returning {len(found_ids)} embeddings"
+        )
+    indices = [id_to_idx[sid] for sid in found_ids]
 
     return EmbeddingResult(
-        sequence_ids=requested_ids,
+        sequence_ids=found_ids,
         embeddings=cached_embeddings[indices].astype(np.float64),
         layer=layer,
         model=model,

@@ -8,7 +8,6 @@ from virosense.backends.base import (
 )
 from virosense.backends.nim import NIMBackend
 from virosense.backends.local import LocalBackend
-from virosense.backends.modal import ModalBackend
 
 
 def test_get_backend_nim():
@@ -21,12 +20,6 @@ def test_get_backend_local():
     """Test factory returns LocalBackend."""
     backend = get_backend("local")
     assert isinstance(backend, LocalBackend)
-
-
-def test_get_backend_modal():
-    """Test factory returns ModalBackend."""
-    backend = get_backend("modal")
-    assert isinstance(backend, ModalBackend)
 
 
 def test_nim_max_context():

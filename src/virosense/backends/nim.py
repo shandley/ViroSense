@@ -17,6 +17,8 @@ from virosense.utils.constants import (
     NIM_MAX_CONCURRENT,
     NIM_MAX_SEQUENCE_LENGTH,
     NIM_REQUEST_TIMEOUT,
+    NIM_SELF_HOSTED_FORWARD_ENDPOINT,
+    NIM_SELF_HOSTED_MAX_CONCURRENT,
     get_nvidia_api_key,
 )
 
@@ -60,11 +62,21 @@ class NIMBackend(Evo2Backend):
         max_concurrent: int | None = None,
     ):
         self.api_key = api_key or get_nvidia_api_key()
-        self.model = model
         self._custom_url = nim_url is not None
         self._base_url = nim_url.rstrip("/") if nim_url else NIM_BASE_URL
+
+        # Cloud NIM always serves 40B — correct model name to avoid mislabeling
+        if not self._custom_url and model != "evo2_40b":
+            logger.info(
+                f"Cloud NIM serves Evo2 40B: correcting model "
+                f"{model!r} -> 'evo2_40b'"
+            )
+            model = "evo2_40b"
+        self.model = model
         self._max_concurrent = max_concurrent or (
-            0 if self._custom_url else NIM_MAX_CONCURRENT
+            NIM_SELF_HOSTED_MAX_CONCURRENT
+            if self._custom_url
+            else NIM_MAX_CONCURRENT
         )
 
     def extract_embeddings(self, request: EmbeddingRequest) -> EmbeddingResult:
@@ -83,7 +95,7 @@ class NIMBackend(Evo2Backend):
             RuntimeError: If API key is missing or API returns an error.
             ValueError: If any sequence exceeds the 16,000 bp limit.
         """
-        if not self.api_key:
+        if not self.api_key and not self._custom_url:
             raise RuntimeError(
                 "NVIDIA_API_KEY not set. Get one at "
                 "https://build.nvidia.com/settings/api-keys"
@@ -103,8 +115,22 @@ class NIMBackend(Evo2Backend):
             self._extract_all_async(sanitized, layer, max_c)
         )
 
-        sequence_ids = list(sanitized.keys())
-        embeddings_matrix = np.stack(results).astype(np.float32)
+        # Filter out failed sequences (None results)
+        all_ids = list(sanitized.keys())
+        sequence_ids = []
+        embeddings = []
+        for seq_id, result in zip(all_ids, results):
+            if result is not None:
+                sequence_ids.append(seq_id)
+                embeddings.append(result)
+        n_failed = len(all_ids) - len(sequence_ids)
+        if n_failed > 0:
+            logger.warning(
+                f"Failed to extract {n_failed}/{len(all_ids)} sequences"
+            )
+        if not embeddings:
+            raise RuntimeError("All sequences failed embedding extraction")
+        embeddings_matrix = np.stack(embeddings).astype(np.float32)
         logger.info(
             f"Extracted embeddings: {embeddings_matrix.shape} "
             f"({len(sequence_ids)} sequences)"
@@ -114,7 +140,7 @@ class NIMBackend(Evo2Backend):
             sequence_ids=sequence_ids,
             embeddings=embeddings_matrix,
             layer=request.layer,
-            model=request.model,
+            model=self.model,
         )
 
     async def _extract_all_async(
@@ -122,27 +148,37 @@ class NIMBackend(Evo2Backend):
         sequences: dict[str, str],
         layer: str,
         max_concurrent: int,
-    ) -> list[np.ndarray]:
+    ) -> list[np.ndarray | None]:
         """Extract embeddings for all sequences concurrently.
 
         Uses a semaphore to limit the number of in-flight requests.
         A single httpx.AsyncClient is shared across all requests to
         reuse TCP connections and avoid per-request client overhead.
-        Returns embeddings in the same order as the input dict.
+        Returns embeddings in the same order as the input dict (None for failures).
         """
-        url = f"{self._base_url}{NIM_FORWARD_ENDPOINT}"
+        endpoint = (
+            NIM_SELF_HOSTED_FORWARD_ENDPOINT
+            if self._custom_url
+            else NIM_FORWARD_ENDPOINT
+        )
+        url = f"{self._base_url}{endpoint}"
         semaphore = asyncio.Semaphore(max_concurrent)
         completed = 0
         n_seqs = len(sequences)
 
         async def extract_one(
             client: httpx.AsyncClient, seq_id: str, sequence: str
-        ) -> np.ndarray:
+        ) -> np.ndarray | None:
             nonlocal completed
             async with semaphore:
-                embedding = await self._extract_single_async(
-                    client, url, seq_id, sequence, layer
-                )
+                try:
+                    embedding = await self._extract_single_async(
+                        client, url, seq_id, sequence, layer
+                    )
+                except (RuntimeError, ValueError) as e:
+                    logger.warning(f"Skipping {seq_id}: {e}")
+                    completed += 1
+                    return None
                 completed += 1
                 if completed % 50 == 0 or completed == n_seqs:
                     logger.info(f"  Progress: {completed}/{n_seqs} sequences")
@@ -168,10 +204,9 @@ class NIMBackend(Evo2Backend):
             "sequence": sequence,
             "output_layers": [layer],
         }
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
         for attempt in range(self.MAX_RETRIES):
             try:
@@ -218,6 +253,16 @@ class NIMBackend(Evo2Backend):
                     continue
 
                 if response.status_code == 422:
+                    # Self-hosted NIM returns 422 "Too Busy" when overloaded
+                    if "Too Busy" in response.text:
+                        wait = self.RETRY_BACKOFF ** (attempt + 1)
+                        logger.warning(
+                            f"Server too busy for {seq_id}, "
+                            f"retrying in {wait:.1f}s "
+                            f"(attempt {attempt + 1}/{self.MAX_RETRIES})"
+                        )
+                        await asyncio.sleep(wait)
+                        continue
                     raise ValueError(
                         f"Sequence {seq_id} rejected by NIM API (422): "
                         f"{response.text}. Sequence length: {len(sequence)} bp "
@@ -305,31 +350,50 @@ class NIMBackend(Evo2Backend):
         raw = base64.b64decode(data["data"].encode("ascii"))
         npz = np.load(io.BytesIO(raw))
 
+        available = list(npz.keys())
         key = f"{layer}.output"
         if key not in npz:
-            available = list(npz.keys())
-            raise RuntimeError(
-                f"Expected key {key!r} in NPZ response for {seq_id}, "
-                f"got: {available}"
-            )
+            # Self-hosted NIM may use different key naming; try first key
+            if len(available) == 1:
+                key = available[0]
+                logger.debug(
+                    f"Using NPZ key {key!r} (expected {layer}.output)"
+                )
+            else:
+                raise RuntimeError(
+                    f"Expected key {layer + '.output'!r} in NPZ response "
+                    f"for {seq_id}, got: {available}"
+                )
 
-        per_position = npz[key]  # (1, seq_len, hidden_dim)
-        seq_embedding = np.mean(per_position, axis=1).squeeze()  # (hidden_dim,)
+        per_position = npz[key]
+        # Cloud API returns (1, seq_len, hidden_dim); self-hosted returns
+        # (seq_len, 1, hidden_dim). Squeeze the batch dim to normalize.
+        if per_position.ndim == 3:
+            per_position = per_position.squeeze(
+                axis=0 if per_position.shape[0] == 1 else 1
+            )  # -> (seq_len, hidden_dim)
+        seq_embedding = np.mean(per_position, axis=0).astype(np.float32)  # (hidden_dim,)
 
         logger.debug(
-            f"  {seq_id}: {per_position.shape[1]} positions -> "
+            f"  {seq_id}: {per_position.shape[0]} positions -> "
             f"({seq_embedding.shape[0]},) embedding ({elapsed}ms)"
         )
         return seq_embedding
 
-    @staticmethod
-    def _resolve_layer(layer: str) -> str:
-        """Map layer name to a valid 40B layer for the NIM API.
+    def _resolve_layer(self, layer: str) -> str:
+        """Map layer name to a valid layer for the NIM API.
 
-        The NIM cloud API always serves the Evo2 40B model. Layers from
-        block 25+ produce near-zero activations. This method maps common
-        7B/1B defaults to their 40B equivalents and warns about dead layers.
+        For cloud NIM (Evo2 40B): remaps 7B/1B layer defaults to 40B
+        equivalents since layers from block 25+ produce near-zero activations.
+
+        For self-hosted NIM: translates native ``blocks.N.mlp.l3`` names to
+        ``decoder.layers.N`` format accepted by the NIM container. Only full
+        layer outputs are available (sublayer selection like ``.mlp.l3`` is
+        not supported by self-hosted NIM).
         """
+        if self._custom_url:
+            return self._resolve_layer_self_hosted(layer)
+
         if layer in _NIM_LAYER_MAP:
             resolved = _NIM_LAYER_MAP[layer]
             logger.warning(
@@ -356,17 +420,45 @@ class NIMBackend(Evo2Backend):
         return layer
 
     @staticmethod
+    def _resolve_layer_self_hosted(layer: str) -> str:
+        """Map layer name to the format accepted by self-hosted NIM.
+
+        Self-hosted NIM containers accept ``decoder.layers.N`` and
+        ``decoder.final_norm`` but NOT ``blocks.N.mlp.l3``. Only full
+        layer outputs are available.
+        """
+        if layer == "decoder.final_norm" or layer.startswith("decoder.layers."):
+            return layer
+
+        if layer.startswith("blocks."):
+            parts = layer.split(".")
+            try:
+                block_idx = int(parts[1])
+                resolved = f"decoder.layers.{block_idx}"
+                logger.info(
+                    f"Self-hosted NIM: translating layer "
+                    f"{layer!r} -> {resolved!r}"
+                )
+                return resolved
+            except (IndexError, ValueError):
+                pass
+
+        return layer
+
+    @staticmethod
     def _sanitize_sequences(sequences: dict[str, str]) -> dict[str, str]:
         """Validate and sanitize sequences before sending to NIM API.
 
-        Replaces ambiguous bases (N) with random ACGT — standard
-        bioinformatics practice for tools that require unambiguous DNA.
-        Rejects sequences with non-DNA characters.
+        Replaces IUPAC ambiguity codes and N bases with random ACGT —
+        standard bioinformatics practice for tools that require
+        unambiguous DNA. Rejects sequences with non-DNA characters.
 
         Returns:
             New dict with sanitized sequences.
         """
-        valid_bases = set("ACGTN")
+        # IUPAC ambiguity codes + N — all replaced with random ACGT
+        iupac_ambiguous = set("NRYWSMKHBVD")
+        valid_bases = set("ACGT") | iupac_ambiguous
         sanitized = {}
         for seq_id, seq in sequences.items():
             seq = seq.upper()
@@ -382,7 +474,13 @@ class NIMBackend(Evo2Backend):
             if invalid:
                 raise ValueError(
                     f"Sequence {seq_id} contains invalid characters: "
-                    f"{invalid}. Only A, C, G, T, N are allowed."
+                    f"{invalid}. Only IUPAC DNA bases are allowed."
+                )
+            # Replace IUPAC ambiguity codes with N (then N->random below)
+            ambig_count = sum(1 for c in seq if c in iupac_ambiguous)
+            if ambig_count > 0:
+                seq = "".join(
+                    "N" if c in iupac_ambiguous else c for c in seq
                 )
             n_count = seq.count("N")
             if n_count > 0:
@@ -400,9 +498,13 @@ class NIMBackend(Evo2Backend):
         return sanitized
 
     def is_available(self) -> bool:
-        """Check if NIM API is accessible (API key is set)."""
-        return self.api_key is not None
+        """Check if NIM API is accessible (API key or self-hosted URL)."""
+        return self.api_key is not None or self._custom_url
 
     def max_context_length(self) -> int:
-        """Return max context length supported by NIM cloud API."""
+        """Return max context length supported by NIM API.
+
+        Cloud API (40B): 16,000 bp.
+        Self-hosted: 16,000 bp (set via NIM_EVO2_FORWARD_SEQUENCE_LENGTH_LIMIT).
+        """
         return NIM_MAX_SEQUENCE_LENGTH

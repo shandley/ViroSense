@@ -17,6 +17,7 @@ DEFAULT_MODEL_DIR = DEFAULT_DATA_DIR / "models"
 NIM_BASE_URL = "https://health.api.nvidia.com/v1"
 NIM_FORWARD_ENDPOINT = "/biology/arc/evo2-40b/forward"
 NIM_GENERATE_ENDPOINT = "/biology/arc/evo2-40b/generate"
+NIM_SELF_HOSTED_FORWARD_ENDPOINT = "/biology/arc/evo2/forward"
 
 # NIM API constraints
 NIM_MAX_SEQUENCE_LENGTH = 16_000  # bp per request
@@ -24,6 +25,7 @@ NIM_RATE_LIMIT_RPM = 40
 NIM_REQUEST_DELAY = 60.0 / NIM_RATE_LIMIT_RPM  # seconds between requests
 NIM_REQUEST_TIMEOUT = 300.0  # seconds (long enough for queued requests)
 NIM_MAX_CONCURRENT = 3  # concurrent async requests (empirically validated limit)
+NIM_SELF_HOSTED_MAX_CONCURRENT = 2  # L40S handles ~2 concurrent requests
 
 # Evo2 model specifications
 EVO2_MODELS = {
@@ -44,7 +46,7 @@ EVO2_MODELS = {
     "evo2_40b": {
         "size_gb": 80,
         "max_context": 1_000_000,
-        "embed_dim": 4096,
+        "embed_dim": 8192,
         "num_layers": 50,
         "recommended_layer": "blocks.20.mlp.l3",
         "nim_endpoint": NIM_FORWARD_ENDPOINT,

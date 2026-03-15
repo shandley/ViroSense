@@ -62,3 +62,8 @@ markers = [
     "integration: requires NVIDIA_API_KEY",
     "e2e: end-to-end tests requiring GPU or NIM",
 ]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.8",
+]

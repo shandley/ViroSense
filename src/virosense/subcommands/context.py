@@ -83,6 +83,7 @@ def run_context(
 
     # 3. Get Evo2 embeddings for windows
     evo2_backend = get_backend(backend, model=model, nim_url=nim_url)
+    model = evo2_backend.model  # Use backend's (possibly auto-corrected) model name
     if not evo2_backend.is_available():
         raise RuntimeError(
             f"Backend {backend!r} is not available. "

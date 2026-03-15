@@ -249,6 +249,35 @@ class TestScoreWindows:
         assert results[0].start == 0
         assert results[0].end == 5000
 
+    def test_score_windows_3class_model(self):
+        """score_windows works correctly with 3-class classifier."""
+        from virosense.models.detector import ClassifierConfig, ViralClassifier
+
+        rng = np.random.default_rng(42)
+        X0 = rng.standard_normal((20, 16)).astype(np.float32) - 2.0
+        X1 = rng.standard_normal((20, 16)).astype(np.float32)
+        X2 = rng.standard_normal((20, 16)).astype(np.float32) + 2.0
+        X = np.vstack([X0, X1, X2])
+        y = np.array([0] * 20 + [1] * 20 + [2] * 20)
+        clf = ViralClassifier(ClassifierConfig(input_dim=16, num_classes=3))
+        clf.fit(X, y, class_names=["chromosome", "plasmid", "viral"])
+
+        meta = [
+            {"window_id": "chr1:0:5000", "chromosome_id": "chr1", "start": 0, "end": 5000},
+            {"window_id": "chr1:2000:7000", "chromosome_id": "chr1", "start": 2000, "end": 7000},
+        ]
+        # Clearly viral embeddings
+        test_emb = rng.standard_normal((2, 16)).astype(np.float32) + 3.0
+        seq_ids = ["chr1:0:5000", "chr1:2000:7000"]
+
+        results = score_windows(test_emb, seq_ids, meta, clf, threshold=0.5)
+        assert len(results) == 2
+        assert all(0.0 <= r.viral_score <= 1.0 for r in results)
+        # With 3-class model, non-viral windows should be "chromosome" or "plasmid", not "cellular"
+        for r in results:
+            if r.classification != "viral" and r.classification != "ambiguous":
+                assert r.classification in ("chromosome", "plasmid")
+
 
 # ---------------------------------------------------------------------------
 # BED output tests

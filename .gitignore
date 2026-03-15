@@ -25,8 +25,15 @@ htmlcov/
 
 ~/.virosense/
 
-# Large test data (downloaded, not generated)
+# Large data (downloaded or generated)
 data/genomad_db/
+data/reference/rna_viruses/
+data/reference/cleaned/
+data/reference/cache/
+data/reference/model/
+data/reference/*/sequences.fasta
+data/benchmarks/
+data/validation/
 data/test/simulated_viral.fasta
 data/test/simulated_bacterial.fasta
 data/test/set5_gut_virome.tar.gz
@@ -36,6 +43,9 @@ data/test/prophage_test/NZ_*.fasta
 data/test/prophage_test/prophage_regions_200kb.fasta
 data/test/prophage_test/cache*/
 data/test/prophage_test/results/
+
+# Benchmark results (large, regenerable)
+results/
 
 .DS_Store
 *.swp

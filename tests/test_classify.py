@@ -12,6 +12,7 @@ from virosense.subcommands.classify import ClassificationResult
 def _make_mock_backend(embed_dim=64):
     """Create a mock backend that returns random embeddings."""
     backend = MagicMock()
+    backend.model = "evo2_7b"
     backend.is_available.return_value = True
 
     def mock_extract(request: EmbeddingRequest) -> EmbeddingResult:

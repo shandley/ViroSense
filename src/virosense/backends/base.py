@@ -1,7 +1,7 @@
 """Abstract base class for Evo2 inference backends."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -27,6 +27,8 @@ class EmbeddingResult:
 
 class Evo2Backend(ABC):
     """Abstract base class for Evo2 inference backends."""
+
+    model: str  # Evo2 model name (may be auto-corrected by backend)
 
     @abstractmethod
     def extract_embeddings(self, request: EmbeddingRequest) -> EmbeddingResult:
@@ -60,15 +62,10 @@ def get_backend(name: str, **kwargs) -> Evo2Backend:
         for k in _nim_only:
             kwargs.pop(k, None)
         return LocalBackend(**kwargs)
-    elif name == "modal":
-        from virosense.backends.modal import ModalBackend
-        for k in _nim_only:
-            kwargs.pop(k, None)
-        return ModalBackend(**kwargs)
     elif name == "mlx":
         from virosense.backends.mlx_backend import MLXBackend
         for k in _nim_only:
             kwargs.pop(k, None)
         return MLXBackend(**kwargs)
     else:
-        raise ValueError(f"Unknown backend: {name}. Choose from: nim, local, modal, mlx")
+        raise ValueError(f"Unknown backend: {name}. Choose from: nim, mlx, local")

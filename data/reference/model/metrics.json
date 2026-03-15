@@ -1,12 +1,43 @@
 {
-  "accuracy": 0.9750402576489533,
-  "f1": 0.9750402414682575,
-  "precision": 0.9750414894720466,
-  "recall": 0.9750402576489533,
-  "auc": 0.9965356380675291,
+  "accuracy": 0.966183574879227,
+  "f1": 0.9661825225690774,
+  "precision": 0.9662265729449154,
+  "recall": 0.966183574879227,
+  "per_class": {
+    "cellular": {
+      "f1": 0.9664,
+      "precision": 0.9618,
+      "recall": 0.9711
+    },
+    "viral": {
+      "f1": 0.966,
+      "precision": 0.9707,
+      "recall": 0.9613
+    }
+  },
+  "confusion_matrix": [
+    [
+      302,
+      9
+    ],
+    [
+      12,
+      298
+    ]
+  ],
+  "confusion_matrix_labels": [
+    "cellular",
+    "viral"
+  ],
+  "auc": 0.9961103619956435,
+  "brier_score_uncalibrated": 0.021360806068563092,
+  "ece_uncalibrated": 0.015033978877902601,
+  "brier_score": 0.02441308321278862,
+  "ece": 0.01804030771077101,
   "task": "viral_vs_cellular",
   "n_train": 4968,
-  "n_val": 1242,
+  "n_cal": 621,
+  "n_test": 621,
   "n_classes": 2,
   "class_names": [
     "cellular",

@@ -1,0 +1,24 @@
+{
+  "description": "ViroSense 4-class reference classifier training data",
+  "classes": {
+    "chromosome": "3053 fragments (bacteria + archaea)",
+    "phage": "3053 fragments (DNA phages + archaeal viruses)",
+    "plasmid": "3053 fragments (bacterial plasmids, RefSeq)",
+    "rna_virus": "3053 fragments (RNA virus cDNA, RefSeq NC_)"
+  },
+  "label_encoding": {
+    "chromosome": 0,
+    "phage": 1,
+    "plasmid": 2,
+    "rna_virus": 3
+  },
+  "rna_virus_source": {
+    "database": "RNA_virus_database.fasta (385K sequences)",
+    "filter": "NC_ RefSeq accessions only",
+    "n_genomes_sampled": 500,
+    "n_fragments_raw": 3751
+  },
+  "existing_3class_source": "data/reference/3class/ (viral renamed to phage)",
+  "seed": 42,
+  "total_fragments": 12212
+}

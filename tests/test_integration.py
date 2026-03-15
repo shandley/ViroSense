@@ -24,6 +24,7 @@ from virosense.backends.base import EmbeddingRequest, EmbeddingResult
 def _make_mock_backend(embed_dim=64):
     """Create a mock backend returning deterministic random embeddings."""
     backend = MagicMock()
+    backend.model = "evo2_7b"
     backend.is_available.return_value = True
     backend.max_context_length.return_value = 16_000
 
@@ -124,12 +125,11 @@ class TestDetectPipeline:
                 threshold=0.5,
                 min_length=500,
                 batch_size=16,
-                threads=4,
                 layer="blocks.28.mlp.l3",
                 cache_dir=None,
             )
 
-        # Verify output
+        # Verify detection results TSV
         result_tsv = output / "detection_results.tsv"
         assert result_tsv.exists()
 
@@ -140,6 +140,21 @@ class TestDetectPipeline:
         assert "classification" in df.columns
         assert "viral_score" in df.columns
         assert all(df["viral_score"].between(0, 1))
+
+        # Verify summary JSON
+        summary_json = output / "detection_summary.json"
+        assert summary_json.exists()
+        with open(summary_json) as f:
+            summary = json.load(f)
+        assert summary["n_sequences"] == 8
+        assert "n_viral" in summary
+        assert "n_cellular" in summary
+        assert "score_distribution" in summary
+        assert "parameters" in summary
+        assert "classifier" in summary
+
+        # Verify HTML report
+        assert (output / "detection_report.html").exists()
 
     def test_detect_all_short_sequences(self, tmp_path):
         """Detect with all sequences below min_length produces no output."""
@@ -159,7 +174,6 @@ class TestDetectPipeline:
                 threshold=0.5,
                 min_length=500,
                 batch_size=16,
-                threads=4,
                 layer="blocks.28.mlp.l3",
                 cache_dir=None,
             )
@@ -216,6 +230,13 @@ class TestBuildReferencePipeline:
         assert "accuracy" in metrics
         assert "f1" in metrics
         assert 0 <= metrics["accuracy"] <= 1
+
+        # Verify confusion matrix and per-class metrics in JSON
+        assert "confusion_matrix" in metrics
+        assert "per_class" in metrics
+
+        # Verify training report HTML
+        assert (output / "training_report.html").exists()
 
     def test_build_reference_with_install(self, tmp_path):
         """Build-reference with --install copies model to default location."""
