@@ -66,4 +66,5 @@ markers = [
 [dependency-groups]
 dev = [
     "matplotlib>=3.10.8",
+    "pyrodigal-gv>=0.3.2",
 ]

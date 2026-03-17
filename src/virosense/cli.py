@@ -8,12 +8,58 @@ from virosense import __version__
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(version=__version__, prog_name="virosense")
 def main():
-    """virosense - Multi-modal viral detection and characterization.
+    """virosense - DNA foundation model embeddings for metagenomic analysis.
 
-    Combines DNA-level (Evo2) and protein-level (ProstT5/vHold) analysis
-    for viral sequence detection, annotation, and classification.
+    Uses frozen Evo2 embeddings as a general-purpose sequence representation.
+    Embed once, then detect viruses, classify contigs, cluster sequences,
+    and analyze gene structure — all from the same cached embeddings.
     """
     pass
+
+
+@main.command()
+@click.option("-i", "--input", "input_file", required=True,
+              type=click.Path(exists=True),
+              help="Input FASTA of DNA sequences")
+@click.option("-o", "--output", required=True, type=click.Path(),
+              help="Output directory for cached embeddings")
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
+              default="nim", help="Evo2 inference backend (default: nim)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--batch-size", default=25, type=int,
+              help="Sequences per checkpoint batch (default: 25)")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL (e.g. http://localhost:8000)")
+@click.option("--max-concurrent", default=None, type=int,
+              help="Max concurrent NIM requests (default: 3 cloud, unlimited self-hosted)")
+@click.option("--per-position", is_flag=True, default=False,
+              help="Also extract per-position embeddings (large files, for scan command)")
+def embed(input_file, output, backend, model, layer, batch_size,
+          nim_url, max_concurrent, per_position):
+    """Extract and cache Evo2 embeddings for downstream analysis.
+
+    This is the expensive step — run once, then use detect, classify,
+    cluster, scan, and prophage commands on the cached embeddings.
+    Mean-pooled embeddings (one vector per sequence) are always produced.
+    Per-position embeddings (one vector per nucleotide) are optionally
+    saved for the scan command.
+    """
+    from virosense.subcommands.embed import run_embed
+    run_embed(
+        input_file=input_file,
+        output_dir=output,
+        backend=backend,
+        model=model,
+        layer=layer,
+        batch_size=batch_size,
+        nim_url=nim_url,
+        max_concurrent=max_concurrent or 3,
+        per_position=per_position,
+    )
 
 
 @main.command()
@@ -193,9 +239,9 @@ def cluster(input_file, output, backend, model, mode, algorithm,
 @click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
               default="evo2_7b",
               help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
-@click.option("--task", type=click.Choice(["viral_vs_cellular", "family", "host"]),
-              default="viral_vs_cellular",
-              help="Classification task (default: viral_vs_cellular)")
+@click.option("--task", default="viral_vs_cellular",
+              help="Classification task name for metadata (default: viral_vs_cellular). "
+                   "Classes are determined automatically from the labels TSV.")
 @click.option("--epochs", default=50, type=int,
               help="Training epochs (default: 50)")
 @click.option("--lr", default=1e-3, type=float,
@@ -215,10 +261,11 @@ def cluster(input_file, output, backend, model, mode, algorithm,
 def classify(input_file, labels, output, backend, model, task,
              epochs, lr, val_split, predict, classifier_model,
              layer, cache_dir, nim_url):
-    """Train or apply a discriminative viral classifier on Evo2 embeddings.
+    """Train or apply a multi-class classifier on frozen Evo2 embeddings.
 
-    Trains a classification head on frozen Evo2 embeddings to predict
-    viral family, host range, or viral vs cellular origin.
+    Supports arbitrary classification tasks — classes are determined
+    automatically from the labels TSV (e.g., virus/plasmid/chromosome
+    for contig typing, or any custom label scheme).
     """
     from virosense.subcommands.classify import run_classify
     run_classify(
@@ -319,6 +366,46 @@ def prophage(input_file, output, backend, model, threshold,
         coarse_step_size=coarse_step_size,
         coarse_threshold=coarse_threshold,
         margin=margin,
+    )
+
+
+@main.command()
+@click.option("-i", "--input", "input_file", required=True,
+              type=click.Path(exists=True),
+              help="Input FASTA of DNA sequences")
+@click.option("-o", "--output", required=True, type=click.Path(),
+              help="Output directory for scan results")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory with per-position embeddings (from embed --per-position)")
+@click.option("--coding/--no-coding", default=True,
+              help="Predict coding vs non-coding regions (default: on)")
+@click.option("--periodicity/--no-periodicity", default=True,
+              help="Compute codon periodicity features (default: on)")
+@click.option("--boundaries/--no-boundaries", default=False,
+              help="Detect gene boundaries via norm derivative (default: off)")
+@click.option("--window", default=30, type=int,
+              help="Smoothing window size in bp (default: 30)")
+def scan(input_file, output, cache_dir, coding, periodicity, boundaries, window):
+    """Analyze per-position Evo2 embeddings for gene structure.
+
+    Detects coding regions, codon periodicity, and gene boundaries from
+    per-position embedding features. Requires pre-computed per-position
+    embeddings (run 'virosense embed --per-position' first).
+
+    Key findings encoded in per-position embeddings:
+    - Coding regions have ~1.7× higher embedding norms than intergenic
+    - 3-nucleotide codon periodicity is the dominant frequency in coding regions
+    - Offset-3 cosine inversion is a universal binary coding signature
+    """
+    from virosense.subcommands.scan import run_scan
+    run_scan(
+        input_file=input_file,
+        output_dir=output,
+        cache_dir=cache_dir,
+        coding=coding,
+        periodicity=periodicity,
+        boundaries=boundaries,
+        window=window,
     )
 
 

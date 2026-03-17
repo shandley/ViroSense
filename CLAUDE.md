@@ -1,6 +1,6 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-03-15
+Last updated: 2026-03-17
 
 ## Project Overview
 
@@ -388,14 +388,18 @@ bash htcf/virosense_pipeline.sh detect -i contigs.fasta -o results/
 - **CLI wiring** (PENDING): Wire `virosense annotate` and `virosense run` subcommands.
 - **Design doc**: `annotate/README.md`
 
-### Benchmark Status (2026-03-15)
+### Benchmark Status (2026-03-17)
 - **7B GYP benchmark**: COMPLETE (13,417 sequences via HTCF NIM). Results: 93.0% accuracy, 95.75% phage sensitivity, 98.2% chromosome specificity, 82.5% plasmid specificity, 63.1% RNA virus recall (without L2-norm). With L2-normalization retrain: 92.5% RNA recall. See `docs/rna_virus_length_analysis.md`.
-- **40B GYP benchmark**: IN PROGRESS (~83% complete, running via cloud NIM). 11,183/13,417 classified.
-- **L2-normalization fix**: IMPLEMENTED. Eliminates length-dependent RNA virus failure. Retrain with `--normalize-l2` needed for production classifiers.
+- **40B GYP benchmark**: COMPLETE (ALL 13,417 sequences via cloud NIM, gap filled 2026-03-17). Results: 95.2% accuracy, 99.7% phage sensitivity, 99.2% chromosome specificity, 81.6% plasmid specificity. RNA virus by length: 81.5% (500bp-1kb), 94.5% (1-3kb), 97.0% (3-5kb), 93.5% (5-10kb), **98.5% (10-16kb)**. No length-dependent failure.
+- **L2-normalization fix**: IMPLEMENTED. Essential for 7B (63%→93% RNA recall), counterproductive for 40B (91%→88%). Preprocessing is model-tier-dependent.
+- **Head-to-head vs geNomad**: ViroSense 40B wins on short fragments (99.7% vs 51.2% phage at 1-3kb), RNA virus recall (93% vs 79.7%), overall accuracy (95.4% vs 94.6%). geNomad wins on plasmid specificity (99.3% vs 81.5%) and speed (500×). Bootstrap CIs in `results/benchmark/comparison/bootstrap_ci.json`.
+- **3-class contig typing**: virus/plasmid/chromosome classifier — 94.5% CV accuracy, 91.5% ± 2.9% plasmid detection, 99.2% plasmid specificity. Dual-mode output: binary (max viral sensitivity) + 3-class (contig typing).
+- **Unsupervised clustering**: HDBSCAN ARI=0.903 recovering 5 biological categories. Euk. RNA viruses separate from dsDNA phages (99% pure cluster). See `docs/cluster_validation.md`.
+- **Per-position embeddings**: Coding norm 1.72× intergenic (41 sequences). **Codon 3bp periodicity** is dominant FFT frequency. Offset-3 cosine inversion is a universal coding signature (94.7% accuracy, 100% of sequences). RNA viruses have strongest periodicity (0.822). See `docs/poc_gene_boundaries.md`.
+- **Publication plan**: `docs/publication_plan.md`. Target: Nature Methods.
 
 ### Existing planned work
-- **Retrain official classifiers with L2-norm**: Both 7B and 40B classifiers need retraining with `--normalize-l2` for production use
-- **Complete 40B GYP benchmark**: ~17% remaining, then repeat L2-norm analysis for 40B comparison
+- **Retrain 7B production classifier with L2-norm**: 7B classifier needs `--normalize-l2` for production use (40B does not benefit from L2-norm)
 - **Improve 7B classifier**: Larger/more diverse training set, hyperparameter tuning, ensemble methods
 - **RNA virus / metatranscriptomics support**: L2-normalization dramatically improves RNA virus detection. Consider including RNA virus cDNA in training data for further gains (especially short fragments <1kb).
 - **Multi-class viral classification**: Train a multi-class classifier for virus type identification (lytic phage, temperate phage, euk RNA virus, euk DNA virus, cellular)

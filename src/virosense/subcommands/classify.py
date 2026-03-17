@@ -1,5 +1,6 @@
 """Train or apply a discriminative viral classifier on Evo2 embeddings."""
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -176,18 +177,24 @@ def _run_training(
     ordered_labels = np.array([label_map[sid] for sid in result.sequence_ids])
 
     # 3. Train classifier
-    metrics = train_classifier(
-        embeddings=result.embeddings,
-        labels=ordered_labels,
-        output_dir=output_path,
-        epochs=epochs,
-        lr=lr,
-        val_split=val_split,
-        task=task,
-        class_names=class_names,
-        layer=layer,
-        model=model,
-    )
+    # Suppress sklearn matmul overflow warnings (cosmetic — intermediate
+    # power iteration overflows in randomized SVD don't affect results)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*matmul.*", category=RuntimeWarning
+        )
+        metrics = train_classifier(
+            embeddings=result.embeddings,
+            labels=ordered_labels,
+            output_dir=output_path,
+            epochs=epochs,
+            lr=lr,
+            val_split=val_split,
+            task=task,
+            class_names=class_names,
+            layer=layer,
+            model=model,
+        )
 
     logger.info(
         f"Classifier trained: accuracy={metrics['accuracy']:.3f}, "
@@ -243,7 +250,11 @@ def _run_prediction(
     )
 
     # 3. Predict (single forward pass — argmax replaces separate predict call)
-    probas = classifier.predict_proba(result.embeddings)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*matmul.*", category=RuntimeWarning
+        )
+        probas = classifier.predict_proba(result.embeddings)
 
     results = []
     for i, seq_id in enumerate(result.sequence_ids):
