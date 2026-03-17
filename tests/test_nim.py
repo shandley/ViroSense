@@ -543,9 +543,9 @@ class TestSelfHostedMode:
         assert result.dtype == np.float32
 
     def test_self_hosted_max_context_length(self):
-        """Self-hosted NIM has 10,000bp max context."""
+        """Self-hosted NIM has 16,000bp max context (configurable via env var)."""
         backend = NIMBackend(nim_url="http://localhost:8000")
-        assert backend.max_context_length() == 10_000
+        assert backend.max_context_length() == 16_000
 
     def test_cloud_max_context_length(self):
         """Cloud NIM has 16,000bp max context."""
