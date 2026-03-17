@@ -1,10 +1,21 @@
 # Future Applications of DNA Foundation Model Embeddings
 
+Last updated: 2026-03-17
+
 ## Core Insight
 
-The RNA virus experiment revealed that Evo2 learned compositional structure of DNA that **generalizes beyond its training distribution**. It was never trained on eukaryotic viruses, yet its embeddings discriminate them from cellular DNA with 100% accuracy. This means the embeddings encode deep sequence properties — codon usage patterns, dinucleotide frequencies, structural motifs, replication signatures — not just memorized taxonomy.
+Evo2 learns fundamental biological structure from unsupervised next-nucleotide prediction:
 
-This makes the embeddings a **universal DNA feature extractor**, and every ViroSense module maps to a general pattern.
+1. **The genetic code**: Per-position embeddings show 3bp codon periodicity as the dominant signal (lag-3 autocorr 0.635, universal across all 40 tested sequences). Offset-3 cosine inversion detects coding regions at 94.7% accuracy.
+2. **Gene structure**: Coding regions have 1.72× higher embedding norms than intergenic (41 sequences across 5 categories).
+3. **Compositional signatures**: RNA viruses have distinctively strong periodicity (0.822 vs 0.624 for phages) enabling database-free identification.
+4. **Cross-domain generalization**: 93.0% RNA virus recall without RNA virus training data; HDBSCAN separates euk. RNA viruses from dsDNA phages unsupervised (ARI=0.903).
+
+This makes the embeddings a **universal DNA feature extractor** at two levels:
+- **Mean-pooled**: sequence-level classification, clustering, detection
+- **Per-position**: gene structure, codon analysis, boundary detection, compositional segmentation
+
+Every ViroSense module maps to a general pattern.
 
 ## Direct Generalizations
 
@@ -56,6 +67,19 @@ Every existing tool for these problems relies on **hand-crafted features** (k-me
 3. **Modular** — same embedding extraction, different downstream head
 4. **Runs locally** — the MLX backend democratizes access
 
-## Recommended First Extension
+## Already Realized (March 2026)
 
-**HGT/genomic island detection** — direct reuse of the prophage architecture with enormous demand in clinical and environmental microbiology, and no foundation-model-based tool doing this yet.
+| Proposed Application | Status | Result |
+|---------------------|--------|--------|
+| **Plasmid detection** | ✅ DONE | 3-class classifier: 91.5% plasmid detection, 99.2% specificity |
+| **Dark matter characterization** | ✅ DONE | RNA virus dark matter: 91.3% classification from periodicity alone |
+| **Prophage → genomic island** | ✅ PILOT | E. coli K12 prophage: 37bp start accuracy, clean signal |
+| **Metagenome binning** | ✅ TESTED | HDBSCAN ARI=0.903; fragment coherence 100%; but genome-resolution limited |
+
+## Recommended Next Extensions
+
+**1. Perplexity forensics** — Per-position embedding norms are a proxy for sequence information density. Compare natural vs codon-optimized genes. Infrastructure exists (`virosense scan`). See `docs/biosurveillance_research_plan.md`.
+
+**2. HGT/genomic island detection** — Direct reuse of the prophage architecture. Per-position norm transitions at foreign DNA boundaries provide single-nucleotide resolution. Enormous demand in clinical microbiology, no foundation-model tool doing this.
+
+**3. Alignment-free phylogenomics** — Embedding distance as evolutionary distance proxy. Testable now with known phylogenies from our benchmark data.

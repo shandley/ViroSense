@@ -73,7 +73,8 @@ Frozen embeddings from the Evo2 DNA foundation model serve as a **general-purpos
 - [x] **Implement `virosense scan` command** — DONE. Per-position analysis via CLI.
 - [x] **Fix `virosense classify`** — DONE. Custom task names, warning suppression.
 - [x] **CLI-test `virosense cluster`** — DONE. Works end-to-end on real data.
-- [ ] **RNA dark matter validation** — RUNNING (88/220 sequences, ~3 hrs remaining). 100 RNA viruses + 80 phages + 40 controls.
+- [x] **RNA dark matter validation** — COMPLETE (203/220 sequences). **97.5% accuracy**, 0.990 AUC. Zero Firmicutes false positives. cos3 is the dominant feature (50.9% importance).
+- [x] **Perplexity forensics pilot** — COMPLETE. 20 natural + 20 codon-optimized gene pairs. 75% accuracy from embedding features alone. Lag-1 autocorrelation distinguishes natural from optimized. Norm CV is the best feature (d = -0.92).
 
 - [ ] **Generate publication figures** (matplotlib/seaborn)
   - Fig 1: Architecture concept diagram ("embed once, analyze many ways")

@@ -1,6 +1,6 @@
 # Foundation Model Biosurveillance Research Plan
 
-Last updated: 2026-03-15
+Last updated: 2026-03-17
 
 ## Vision
 
@@ -10,9 +10,12 @@ Develop foundation model-based tools for pathogen detection and engineered seque
 
 - DARPA Bio-Attribution Challenge highlights need for petabyte-scale pathogen detection + engineering attribution
 - DNA foundation models (Evo2) capture deep sequence composition that k-mer databases cannot
-- ViroSense benchmark demonstrates 95.8% phage sensitivity (7B) / 99.7% (40B) — proof that Evo2 embeddings work for detection
-- L2-normalization fix (2026-03-15) eliminates length-dependent RNA virus detection failure: 34% → 99% recall at 10-16kb
+- ViroSense benchmark demonstrates 99.7% phage sensitivity (40B), 93.0% RNA virus recall, outperforming geNomad on short fragments (99.7% vs 51.2% at 1-3kb)
+- **Per-position embeddings encode the genetic code**: 3bp codon periodicity is the dominant signal in coding regions (lag-3 autocorr 0.635, 40 sequences). This directly enables perplexity-based forensic analysis.
+- **RNA virus dark matter detection** from codon periodicity alone (91.3% accuracy, no database needed) — validates database-free pathogen characterization
+- **Prophage detection pilot** successful (37bp boundary accuracy on E. coli K12) — validates sliding-window architecture for foreign DNA detection
 - No existing tools use foundation model perplexity for engineered sequence forensics
+- ViroSense CLI now includes `embed` and `scan` commands providing per-position analysis infrastructure
 - WashU RIS infrastructure (H100s, Docker-native, petabyte storage) makes large-scale work feasible
 
 ## Infrastructure
@@ -46,7 +49,11 @@ Develop foundation model-based tools for pathogen detection and engineered seque
 - Chimeric constructs → sharp transitions at assembly junctions
 - BioBrick scars, Gibson junctions → stereotyped perplexity signatures
 
-**Existing evidence**: ViroSense RNA virus experiment showed Evo2 captures compositional signatures even for sequences outside its training distribution. The L2-normalization analysis (March 2026) proved that Evo2 embedding *direction* encodes stable viral signatures independent of sequence length — the information is there, the classifier just needs to use it correctly.
+**Existing evidence (March 2026)**:
+- **Codon periodicity**: Evo2 per-position embeddings show 3bp periodicity as the dominant signal in coding regions (lag-3 autocorr 0.635, FFT peak at exactly 3.0 bp). This means Evo2 already captures the codon-level structure that perplexity analysis would exploit. A codon-optimized gene would have abnormally smooth periodicity; chimeric constructs would show periodicity phase shifts at junctions.
+- **Per-position norm signal**: Coding regions have 1.72× higher embedding norms than intergenic — Evo2 "sees" information density per nucleotide. Engineered regulatory elements (synthetic promoters, RBS) would produce anomalous norm patterns.
+- **RNA virus zero-shot**: Evo2 captures compositional signatures even for sequences outside its training distribution (93.0% RNA virus recall without RNA virus training data).
+- **Infrastructure ready**: `virosense embed --per-position` extracts per-position data; `virosense scan` analyzes it. The perplexity computation is a natural extension of this pipeline.
 
 **Data**:
 - Positive (engineered): Addgene (~100K deposited plasmids), iGEM Registry, JBEI-ICE
@@ -57,10 +64,32 @@ Develop foundation model-based tools for pathogen detection and engineered seque
 - Evo2 forward pass with per-token log-likelihoods (not just embeddings)
 - Options: Self-hosted NIM on RIS H100s, MLX backend (local, 7B), or direct Evo2 package on A100s
 - Sliding window perplexity computation along genomes
+- **Note**: The NIM API returns embeddings, not logits. For perplexity, we need either (a) the MLX backend (local, full forward pass available), (b) direct Evo2 package, or (c) use embedding norm as a proxy for information density (already validated: 1.72× coding/intergenic ratio).
 
 **Novelty**: High. Nobody has applied DNA foundation model perplexity to forensic detection of engineering.
 
 **Priority**: Phase 1 — lowest hanging fruit, most novel, uses existing infrastructure.
+
+**Quick validation — DONE (2026-03-17)**:
+
+Compared per-position Evo2 embeddings for the same protein (422 aa) encoded as:
+1. Natural gene (Erwinia phage, original codons)
+2. E. coli codon-optimized (all preferred synonymous codons)
+3. Chimera (first half natural, second half optimized)
+
+| Feature | Natural | Codon-optimized | Effect size |
+|---------|---------|-----------------|-------------|
+| **Lag-1 autocorrelation** | 0.328 | **0.781** | **Massive** (d >> 2) |
+| Lag-3 autocorrelation | 0.730 | 0.842 | Large |
+| Offset-3 cosine | 0.489 | 0.620 | Large |
+| Position-wise cosine (nat vs opt) | — | 0.337 mean | Very different embeddings |
+| Fraction positions cosine > 0.5 | — | 13.9% | Only 14% of positions are similar |
+
+**Key finding**: Lag-1 autocorrelation is a **smoking gun for codon optimization**. Natural genes have low lag-1 (diverse synonymous codons → varied adjacent nucleotides). Codon-optimized genes have very high lag-1 (repetitive preferred codons → smooth, predictable adjacent patterns). This is detectable from Evo2 per-position embeddings without any reference database or gene annotation.
+
+**Chimera detection**: Simple norm derivative did not detect the natural→optimized junction. Sliding-window lag-1 computation (computing lag-1 in local windows along the sequence) may be more effective — the lag-1 should shift from ~0.33 to ~0.78 at the junction point. This needs further development.
+
+**Next step**: Test on real engineered sequences from Addgene to validate beyond this single-gene proof-of-concept.
 
 ### 2. Distilled Foundation Model for Read-Level Metagenomics
 

@@ -256,12 +256,31 @@ Current RNA virus detection requires RdRp homology search or protein domain data
 
 This could be the **first approach to identify likely RNA viral sequences from DNA/cDNA composition alone**, without any reference database — addressing a fundamental gap in viral dark matter detection.
 
-### Caveats and Next Steps
+### Definitive Validation (203 sequences, 2026-03-17)
 
-- **Only 8 RNA virus sequences tested** — need 100+ for robust validation, sampled across diverse RNA virus families (positive-sense ssRNA, negative-sense ssRNA, dsRNA, retroviruses)
-- **Firmicutes phages overlap** — low-GC organisms may produce false positives; need to test on a broader set of Firmicutes/Mollicutes phages
-- **Metatranscriptomic validation needed** — test on real metatranscriptomic assemblies where RNA viruses are the primary target
-- **Potential confounders**: highly AT-biased organisms (Plasmodium, some archaea), organellar DNA
+Expanded to 100 RNA viruses + 72 dsDNA phages + 20 plasmids + 18 chromosomes with full periodicity features.
+
+| Metric | RNA virus vs ALL | RNA virus vs dsDNA phage |
+|--------|-----------------|-------------------------|
+| **Accuracy** | **97.5%** | **94.5%** |
+| **AUC** | **0.990** | **0.987** |
+| **RNA virus recall** | 95% | 96% |
+| **Specificity** | 100% | 93% |
+| **Firmicutes phage FP** | **0/25 (0%)** | — |
+
+Best discriminating features (Random Forest importance):
+- **cos3** (offset-3 cosine): 50.9% — RNA virus 0.638 vs phage 0.528
+- **lag3** (autocorrelation): 18.0% — RNA virus 0.875 vs phage 0.766
+- **cos1** (adjacent cosine): 15.9% — RNA virus 0.331 vs phage 0.267
+
+The Firmicutes false positive concern is **resolved** — 0/25 Firmicutes-host phages misclassified as RNA virus.
+
+### Remaining Caveats
+
+- Validated on benchmark fragments, not real metatranscriptomic assemblies
+- Need to test on dsRNA viruses, retroviruses, and negative-sense ssRNA specifically
+- Potential confounders: highly AT-biased organisms (Plasmodium, some archaea), organellar DNA
+- Should validate on completely independent dataset (not from the same RNA virus database)
 
 ## Novel Gene Detection
 
