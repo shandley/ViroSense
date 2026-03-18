@@ -11,91 +11,83 @@ The biosurveillance research directions (perplexity forensics, knowledge distill
 ```
 Logan (385 TB, 100B contigs)
     │
-    ▼ Paper 1: NCD pre-filter
-Compression filter ($50, hours)
-    │  90% eliminated — obviously chromosomal
+    ▼ Paper 1: K-mer pre-filter (VALIDATED: 91.4% accuracy, 458 seq/s)
+Trinucleotide classifier ($500, ~2.5 days on 1000 CPUs)
+    │  ~90% eliminated as non-viral
     ▼
-~10B candidates
+~10B viral/ambiguous candidates
     │
-    ▼ Paper 2: K-mer periodicity proxy
-K-mer periodicity screening ($100, hours)
-    │  Flag RNA-origin, viral-composition candidates
+    ▼ Paper 2: Knowledge distillation
+Distilled CNN classifier ($500, ~1 day)
+    │  Refine from 91% to ~95%, add contig typing
     ▼
-~2B viral/interesting candidates
+~500M high-confidence viral + novel
     │
-    ▼ Paper 3: Knowledge distillation
-Distilled CNN classifier ($500, 1 day)
-    │  Classify into virus/plasmid/chromosome/novel
-    ▼
-~100M flagged sequences
-    │
-    ▼ Paper 4: Evo2 characterization
+    ▼ Paper 3: Evo2 characterization (ViroSense methods)
 Full Evo2 DNA passports ($3K, 1-2 weeks)
     │  Identity, origin, structure, novelty
     ▼
-~5M novel/interesting sequences
+~5-50M characterized sequences
     │
-    ▼ Paper 5: Anomaly detection + clustering
+    ▼ Paper 4: Anomaly detection + clustering
 Novel lineage discovery ($50, hours)
     │  HDBSCAN, FAISS nearest-neighbor, anomaly scoring
     ▼
 Publication: "Planetary-scale viral census"
 ```
 
-Each arrow is a 10× reduction in volume. Five papers, each producing a tool, each making the next step feasible.
+Each arrow is a 10-20× reduction in volume. Four papers (NCD dropped after negative feasibility test), each producing a tool, each making the next step feasible.
 
-## Paper 1: NCD Pre-Filter
+## ~~Paper 1: NCD Pre-Filter~~ — TESTED, DOES NOT WORK
 
-**"Compression Distance as a Pre-Filter for Foundation Model Inference on Metagenomic Data"**
+**Feasibility test (2026-03-18)**: NCD cannot separate viral from non-viral sequences.
+
+- AUC: **0.475** (worse than random)
+- All categories have NCD ~0.95 to viral references (Cohen's d = 0.01)
+- NCD measures compression redundancy, not biological category
+- Works for within-species comparison, NOT cross-category screening
+
+**Verdict**: Dropped from the pipeline. Replaced by k-mer classifier (Paper 2).
+
+## Paper 1 (revised): K-mer Classifier as Pre-Filter
+
+**"Trinucleotide Frequency Classifiers as Fast Pre-Filters for Foundation Model Metagenomic Analysis"**
+
+### Feasibility test — VALIDATED (2026-03-18)
+
+Tested on 5,000 GYP benchmark sequences with trinucleotide + dinucleotide features:
+
+| Task | K-mer accuracy | K-mer AUC | Evo2 accuracy | Speed |
+|------|---------------|-----------|---------------|-------|
+| **Viral vs non-viral** | **91.4%** | **0.966** | 95.4% | **1,527× faster** |
+| **RNA virus vs all** | **95.0%** | **0.985** | 97.5% | 1,527× |
+| **5-class typing** | **74.2%** | — | 94.5% | 1,527× |
+
+- 458 sequences/second on CPU (vs 0.3 seq/s for Evo2 7B)
+- Top features: trinucleotide frequencies (CTA, AGA, ACT) and dinucleotide (GC, AC)
+- 91.4% viral detection is sufficient for first-pass screening
+- Captures codon-level composition that approximates Evo2's periodicity signal
 
 ### Scientific question
-Can Normalized Compression Distance (NCD) predict which sequences will benefit from expensive foundation model analysis?
+What fraction of Evo2's discriminative power comes from k-mer composition vs higher-order sequence features? Can simple k-mer classifiers replace foundation models for initial screening?
 
 ### Method
-- Compute NCD between each contig and a small panel of viral reference sequences
-- NCD uses gzip compression — runs at disk I/O speed, no model needed
-- Sequences with high NCD to all viral references are obviously non-viral → skip
-
-### Expected result
-- 90% of contigs eliminated before any ML inference
-- <1% false negative rate (viral sequences incorrectly filtered)
-- Microseconds per sequence — effectively free at any scale
+- Random forest on trinucleotide (64) + dinucleotide (16) + GC + frame entropy features
+- Compare against Evo2 on same benchmark at multiple tasks
+- Characterize the "accuracy gap" — what do the 4-8% of sequences that k-mers miss have in common?
+- Test as a pre-filter: k-mer screens, only ambiguous cases sent to Evo2
 
 ### Connection to Logan
-Reduces the input to the distilled model from 100B to ~10B sequences. Saves ~$900 in Phase 2 screening and proportionally reduces downstream costs.
+Replaces both the NCD filter AND the distilled model for initial screening. At 458 seq/s:
+- 100B Logan contigs on 1000 CPUs: **~2.5 days (~$500)**
+- 129K metatranscriptome samples: **~hours**
+- Cost is essentially zero compared to GPU inference
 
 ### Effort
-- Implementation: 1-2 weeks
-- Validation on GYP benchmark: 1 week
-- Paper: 1 month
-- **Can start immediately — no GPU needed**
-
-## Paper 2: K-mer Periodicity Proxy
-
-**"K-mer Frequency Signatures Approximate Foundation Model Codon Periodicity for RNA Virus Detection"**
-
-### Scientific question
-Can the codon periodicity signal we discovered in Evo2 per-position embeddings (lag-3 = 0.875 for RNA viruses) be approximated from hexanucleotide frequencies alone?
-
-### Method
-- Compute hexanucleotide (6-mer) frequencies for each sequence
-- 6-mers capture 2 complete codons — should encode periodicity
-- Train a small MLP: 4096 hexanuc frequencies → periodicity score
-- Compare against Evo2 ground truth (our 203-sequence dark matter dataset)
-
-### Expected result
-- RNA virus identification at ~85-90% accuracy from k-mers alone (vs 97.5% with Evo2)
-- Microseconds per sequence
-- Good enough for screening, with Evo2 reserved for confirmation
-
-### Connection to Logan
-Flags RNA-origin candidates in the NCD-filtered pool without any GPU inference. Focuses the distilled model on the most promising sequences.
-
-### Effort
-- Implementation: 1 week (k-mer computation is trivial)
-- Validation: 1 week (use existing 203-sequence dataset)
-- Paper: Could be a section in the distillation paper or standalone
-- **Can start immediately — uses existing data**
+- Implementation: **DONE** (feasibility test is the implementation)
+- Full validation on complete 13K benchmark: 1 day
+- Paper: standalone or section in ViroSense methods paper
+- **Immediately actionable**
 
 ## Paper 3: Knowledge Distillation
 
@@ -179,40 +171,41 @@ This paper uses every tool from Papers 1-4. It's the capstone.
 - Analysis: 2-3 months
 - Paper: 2-3 months after analysis
 
-## Unified Timeline
+## Unified Timeline (revised)
 
 ```
-Month 1-2:  Paper 4 (ViroSense methods — write + submit)
-            Paper 1 (NCD filter — implement + validate)
-            Paper 2 (K-mer periodicity — implement + validate)
+Month 1:    Paper 3 (ViroSense methods — write + submit, data exists)
+            Paper 1 (K-mer classifier — full validation on 13K benchmark)
             WashU RIS onboarding
 
-Month 2-4:  Paper 3 Phase 0 (generate 5M teacher embeddings on RIS)
-            Paper 1+2 submission
+Month 2-3:  Paper 2 Phase 0 (generate 5M teacher embeddings on RIS)
+            Paper 1 submission (or fold into Paper 3 as supplementary)
 
-Month 4-5:  Paper 3 Phase 1 (train + validate distilled model)
-            Paper 3 submission
+Month 3-4:  Paper 2 Phase 1 (train + validate distilled model)
+            Paper 2 submission
 
-Month 5-7:  Paper 5 (Logan metatranscriptome screening)
-            Analysis + novel lineage discovery
+Month 4-6:  Paper 4 (Logan metatranscriptome screening)
+            K-mer pre-filter → distilled refinement → Evo2 characterization
+            Novel lineage discovery
 
-Month 7-9:  Paper 5 writing + submission
+Month 6-8:  Paper 4 writing + submission
 ```
 
-Five papers in 9 months. Each one builds on the previous. The engineering work and the science are the same.
+Four papers in 8 months. NCD dropped after negative feasibility test.
+K-mer classifier validated and ready for immediate use.
 
-## Cost Summary (with optimizations)
+## Cost Summary (updated after feasibility tests)
 
-| Paper | Compute cost | GPU time | Key output |
-|-------|-------------|----------|-----------|
-| 1. NCD filter | ~$0 | 0 | 10× volume reduction |
-| 2. K-mer periodicity | ~$0 | 0 | RNA-origin screening |
-| 3. Distillation | ~$12K | 5 weeks | 1000× speedup tool |
-| 4. ViroSense methods | ~$0 (data exists) | 0 | Methods paper |
-| 5. Logan census | ~$3-5K | 1-2 weeks | Nature paper |
-| **Total** | **~$15-17K** | **7 weeks GPU** | **5 papers** |
+| Paper | Compute cost | GPU time | Key output | Status |
+|-------|-------------|----------|-----------|--------|
+| ~~NCD filter~~ | — | — | DOES NOT WORK | ❌ Dropped |
+| 1. K-mer classifier | ~$500 | 0 | 91.4% pre-filter, 1527× speedup | ✅ Validated |
+| 2. Distillation | ~$12K | 5 weeks | 95%+ accuracy, 1000× speedup | Planned |
+| 3. ViroSense methods | ~$0 (data exists) | 0 | Methods paper | Ready to write |
+| 4. Logan census | ~$3-5K | 1-2 weeks | Nature paper | After 1-2 |
+| **Total** | **~$16-18K** | **7 weeks GPU** | **4 papers** |
 
-Compare: $15-17K and 9 months for 5 papers including a planetary-scale viral census. The cost of 1-2 sequencing runs for the most comprehensive viral discovery project ever attempted.
+The k-mer pre-filter alone reduces Logan screening to **~$500 on CPUs**. Combined with distillation for refinement, the total planetary-scale project is ~$16-18K — still under the cost of 2 sequencing runs.
 
 ## What We Have Already
 
@@ -227,4 +220,7 @@ Compare: $15-17K and 9 months for 5 papers including a planetary-scale viral cen
 | Characterize framework | ✅ Complete | Papers 4, 5 |
 | 40B embedding cache (18,631 sequences) | ✅ Complete | Paper 3 (seed data) |
 | HTCF NIM deployment | ✅ Complete | Paper 3 |
-| Philympics prophage data (5 genomes) | ✅ Running | Paper 4 |
+| Philympics prophage data (5 genomes) | ✅ Running | Paper 3 |
+| K-mer classifier feasibility (5K seqs) | ✅ Validated | Paper 1 |
+| NCD pre-filter feasibility | ❌ Does not work | Dropped |
+| Forensics pilot (codon optimization) | ✅ Complete | Paper 3 (supplementary) |
