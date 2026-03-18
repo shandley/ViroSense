@@ -83,3 +83,39 @@ Every existing tool for these problems relies on **hand-crafted features** (k-me
 **2. HGT/genomic island detection** — Direct reuse of the prophage architecture. Per-position norm transitions at foreign DNA boundaries provide single-nucleotide resolution. Enormous demand in clinical microbiology, no foundation-model tool doing this.
 
 **3. Alignment-free phylogenomics** — Embedding distance as evolutionary distance proxy. Testable now with known phylogenies from our benchmark data.
+
+## Case Study: Could ViroSense Find Obelisks?
+
+[Obelisks](https://pmc.ncbi.nlm.nih.gov/articles/PMC12226432/) are a recently discovered class of ~1 kb circular RNA replicons found in human microbiome metatranscriptomes. They encode a novel protein family ("Oblins") with no homology to any known sequence, and were discovered using a specialized tool (VNom) that detects circularity and strand co-occurrence.
+
+### What ViroSense would do
+
+| Module | Expected behavior | Confidence |
+|--------|------------------|------------|
+| **detect** | Flag as viral/non-cellular (unusual composition) | Moderate (~80% at 1kb) |
+| **cluster** | Form a distinct cluster separate from all known categories | High |
+| **scan** | Oblin ORF shows coding periodicity; RNA-origin signature | High |
+| **RNA dark matter** | Classify as RNA-origin from cos3 periodicity | High |
+
+ViroSense would likely **flag Obelisks as unusual, RNA-origin, compositionally novel sequences** that don't match any known category. In an HDBSCAN clustering analysis, they would form their own group — a clear signal for follow-up investigation.
+
+### What ViroSense would NOT do
+
+- Detect circularity (requires assembly graph or strand co-occurrence analysis)
+- Identify self-cleaving ribozymes (requires RNA structure prediction)
+- Characterize them as a new class of replicon (requires specialized analysis)
+
+### The Value Proposition
+
+This illustrates the role of foundation model embeddings in novel sequence discovery:
+
+1. **Triage**: ViroSense flags unusual sequences from the metagenomic haystack
+2. **Grouping**: Clustering identifies them as a coherent novel group
+3. **Characterization**: RNA-origin periodicity signature provides initial classification
+4. **Follow-up**: Specialized tools (structural prediction, ribozyme detection) complete the characterization
+
+No homology-based tool could find Obelisks — they're too divergent. Gene-based tools would miss them — Oblins have no known domains. **Composition-based detection via foundation model embeddings is the right first step** for discovering truly novel biological entities.
+
+### Limitation
+
+At ~1 kb, Obelisks are at the lower end of ViroSense's effective range. Our 500bp-1kb detection sensitivity is 81.5% for RNA viruses. Some Obelisk contigs might be missed, especially if they're fragmented in assembly. Improving short-sequence sensitivity (potentially through per-position analysis rather than mean-pooled classification) would increase the probability of detecting elements in this size range.
