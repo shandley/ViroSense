@@ -59,12 +59,13 @@ From our experimental validation (March 2026):
 - Pilot: the Philympics prophage data includes HGT regions beyond prophages
 - *Effort: 1-2 weeks analysis of existing prophage results*
 
-**Alignment-free phylogenomics**
-- Embedding cosine distance as evolutionary distance proxy
-- Test with GYP phage benchmark: do embedding distances correlate with known viral taxonomy?
-- Works on sequences too divergent for alignment
-- Pilot: compute pairwise distances for 6,663 phage fragments, compare to ICTV taxonomy
-- *Effort: 1 week, existing cached embeddings*
+**Alignment-free phylogenomics** — VALIDATED (2026-03-18)
+- Embedding cosine distance correlates with taxonomic distance: **Spearman r = 0.504 (p ≈ 0)**
+- Clean hierarchy: same genome (0.069) → same genus (0.129) → same phylum (0.175) → different phylum (0.329)
+- Same-genome fragments are 4.8× closer than different-phylum pairs
+- Inter-phylum distances reflect known biology (Actinobacteria–Betaproteo closest at 0.139, both high-GC)
+- Tested on 2,000 phage fragments from 774 source genomes, 6 host phyla
+- *Status: validated, ready for full analysis*
 
 **Assembly quality assessment**
 - Per-position compositional transitions detect chimeric misassemblies
