@@ -172,10 +172,11 @@ Frozen embeddings from the Evo2 DNA foundation model serve as a **general-purpos
 "DNA foundation model embeddings as a general-purpose representation for metagenomic sequence classification"
 
 ### Abstract
-- Evo2 frozen embeddings achieve 99.7% phage sensitivity on short fragments where marker-gene approaches (geNomad: 51.2%) fail
-- Same embeddings support viral detection, contig typing, unsupervised clustering, and gene boundary detection
-- L2-normalization is model-scale-dependent: essential for 7B, counterproductive for 40B
-- Per-position embeddings encode gene structure without any gene-calling training
+- DNA foundation model embeddings serve as a universal sequence characterization framework
+- Trinucleotide frequencies achieve 93% of Evo2's accuracy for binary viral detection — the foundation model's unique value is in qualitatively different analyses: per-position gene structure, zero-shot generalization, compositional characterization, and anomaly detection
+- Per-position embeddings reveal the triplet genetic code (3bp codon periodicity) and enable 94.7% coding region detection without gene calling
+- RNA dark matter detection at 97.5% accuracy from periodicity features alone — database-free
+- Same embeddings support detection, contig typing, clustering, gene structure, prophage boundaries, and comprehensive biological profiling ("DNA passports")
 
 ### Introduction
 - Viral metagenomics depends on detecting viral sequences in mixed microbial communities

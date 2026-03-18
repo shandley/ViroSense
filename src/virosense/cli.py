@@ -142,14 +142,22 @@ def characterize(input_file, output, backend, model, layer, cache_dir,
 @click.option("--classifier-model", type=click.Path(exists=True),
               default=None,
               help="Pre-trained classifier model (default: reference model)")
+@click.option("--fast", is_flag=True, default=False,
+              help="Use k-mer pre-filter: classify all sequences with fast trinucleotide "
+                   "features (~1500× faster), only send borderline cases to Evo2. "
+                   "Achieves ~93%% accuracy without GPU for most sequences.")
 def detect(input_file, output, backend, model, threshold,
            min_length, batch_size, threads, layer, cache_dir, nim_url,
-           max_concurrent, classifier_model):
+           max_concurrent, classifier_model, fast):
     """Detect viral sequences in metagenomic contigs.
 
     Uses Evo2 DNA embeddings to classify contigs. Supports 2-class
     (viral/cellular) and 3-class (viral/chromosome/plasmid) models
     automatically based on the installed reference classifier.
+
+    With --fast, uses a two-tier pipeline: trinucleotide frequency
+    classifier for initial screening (93% accuracy, 1500× faster),
+    then Evo2 only for borderline cases (k-mer probability 0.3-0.7).
     """
     from virosense.subcommands.detect import run_detect
     run_detect(
@@ -165,6 +173,7 @@ def detect(input_file, output, backend, model, threshold,
         nim_url=nim_url,
         max_concurrent=max_concurrent,
         classifier_model=classifier_model,
+        fast=fast,
     )
 
 
