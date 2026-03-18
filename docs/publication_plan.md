@@ -1,241 +1,228 @@
 # ViroSense Publication Plan
 
-**Working title**: "DNA foundation model embeddings as a general-purpose representation for metagenomic sequence classification"
+**Working title**: "Frozen DNA foundation model embeddings reveal the genetic code and enable universal sequence characterization"
 
-**Target journal**: Nature Methods / Genome Research
+**Target journal**: Nature Methods
 
-Last updated: 2026-03-16. This is a living document — iterate as new data and findings emerge.
-
----
-
-## Central Thesis
-
-Frozen embeddings from the Evo2 DNA foundation model serve as a **general-purpose representation** for metagenomic analysis. A single forward pass through Evo2 produces per-position embeddings that support viral detection, contig typing, unsupervised clustering, and gene boundary detection — all through lightweight downstream analyses on the same cached representation. This "embed once, analyze many ways" paradigm contrasts with traditional pipelines where each task requires a separate tool with its own models and databases.
+Last updated: 2026-03-18
 
 ---
 
-## Key Findings (data in hand)
+## Central Thesis (Revised)
 
-### 1. Viral Detection (binary)
-- ViroSense 40B: 99.7% phage sensitivity, 91.1% RNA virus recall (zero-shot)
-- Outperforms geNomad on short fragments: **99.7% vs 51.2% at 1-3kb**
+Frozen Evo2 embeddings are a **universal DNA characterization framework**, not merely a classifier. The key contributions are things that only foundation model embeddings can do — and that k-mer baselines and marker-gene tools cannot:
+
+1. **Per-position embeddings encode the genetic code** — 3bp codon periodicity emerges from unsupervised next-nucleotide prediction
+2. **Zero-shot generalization** — 93% RNA virus recall without any RNA virus training data
+3. **Database-free RNA dark matter detection** — 97.5% accuracy from periodicity features alone
+4. **Compositional characterization** — DNA passports that reveal identity, origin, structure, and novelty
+5. **Prophage amelioration gradients** — viral scores measure evolutionary age of integrated elements
+
+Binary viral detection (where we compete with geNomad and k-mer baselines) is a **demonstration**, not the main contribution. K-mer baselines achieve 93% for detection — the 2.3% gap is honest and well-characterized.
+
+---
+
+## What's Changed Since the Original Plan
+
+| Original framing | Revised framing |
+|-----------------|-----------------|
+| "Viral detection tool that beats geNomad" | "Universal characterization framework with viral detection as one application" |
+| Detection accuracy is the main result | **Codon periodicity discovery** and **characterization** are the main results |
+| Per-position analysis is a PoC | Per-position analysis is a **primary finding** — the genetic code in embeddings |
+| Prophage detection as a feature | Prophage **amelioration gradient** as a characterization example |
+| Speed is a weakness | **Two-tier pipeline** (k-mer screening → Evo2 characterization) addresses speed |
+| Single-purpose tool | **"Embed once, analyze many ways"** — detection, typing, clustering, gene structure, phylogenomics, characterization all from one embedding |
+
+---
+
+## Key Findings (ranked by novelty, not by order discovered)
+
+### 1. The Genetic Code in Embeddings (most novel)
+- 3bp codon periodicity is the **dominant FFT frequency** in Evo2 per-position representations
+- Lag-3 autocorrelation: 0.635 across 40 diverse sequences, universal across all categories
+- Offset-3 cosine inversion: 94.7% coding detection accuracy, present in 100% of sequences
+- Evo2 learned the triplet code from unsupervised next-nucleotide prediction
+- **No prior work has shown this.** This is a fundamental insight about DNA foundation models.
+
+### 2. RNA Dark Matter Detection (high novelty + high impact)
+- 97.5% accuracy, 0.990 AUC distinguishing eukaryotic RNA viruses from all other categories
+- From per-position periodicity features alone — **no database, no homology, no gene calling**
+- cos3 (offset-3 cosine) is the dominant feature (Cohen's d = 2.83)
+- Zero Firmicutes phage false positives (0/25)
+- 203 sequences validated across 4 categories
+- **First database-free RNA virus identifier from DNA composition**
+
+### 3. Universal Characterization Framework (architectural contribution)
+- `virosense characterize` produces multi-dimensional "DNA passports"
+- Identity (nearest category + anomaly score), Origin (viral/RNA/mobile signatures), Structure (coding, periodicity), Novelty (percentile against reference)
+- 100% RNA origin interpretation accuracy on 25 diverse test sequences
+- Anomaly scoring flags novel elements (Obelisk-like discoveries)
+- **One Evo2 forward pass → comprehensive biological profile**
+
+### 4. K-mer Baseline Comparison (honest, strengthens the paper)
+- Trinucleotide frequencies achieve **93% viral detection** at **1527× the speed** of Evo2
+- Gap analysis: 6.3% of sequences need Evo2 (host-adapted phages, low-GC false positives, short fragments)
+- The gap is **biologically meaningful** — Evo2 captures contextual composition beyond k-mer bags
+- Two-tier pipeline: k-mers screen everything, Evo2 characterizes the borderline 15%
+- **This is the honest comparison most papers don't include**
+
+### 5. Viral Detection Benchmark (validation, not main contribution)
+- 40B: 99.7% phage sensitivity, 93.0% RNA virus recall, 95.4% overall accuracy
+- vs geNomad: ViroSense wins on short fragments (99.7% vs 51.2% at 1-3kb), geNomad wins on plasmid specificity (99.3% vs 81.5%) and speed (500×)
 - Bootstrap CIs: all key comparisons non-overlapping
-- **Status**: COMPLETE, publication-ready
+- 13,417 sequences, complete benchmark
 
-### 2. Contig Typing (3-class: virus/plasmid/chromosome)
-- Cross-validated: 94.5% ± 0.7% accuracy, 91.5% ± 2.9% plasmid detection
-- Held-out evaluation: 94.8% plasmid detection, 99.2% plasmid specificity
-- Matches geNomad plasmid specificity (99.3%) while adding detection capability
-- **Status**: COMPLETE, publication-ready
+### 6. Additional Validated Capabilities
+- **3-class contig typing**: 94.5% CV accuracy (virus/plasmid/chromosome)
+- **Unsupervised clustering**: HDBSCAN ARI=0.903, RNA viruses separate from dsDNA phages (99% pure cluster)
+- **Alignment-free phylogenomics**: Spearman r=0.504 between embedding distance and taxonomic distance
+- **Prophage amelioration**: Coarse-pass viral scores reveal evolutionary age gradient (DLP12 active → e14 invisible)
+- **Gene boundary detection**: 91.7% coding accuracy, 73.2% boundary recall, 1.72× norm ratio across 41 sequences
 
-### 3. L2-Normalization / Preprocessing Insights
-- 7B model: embedding magnitude decays with length for RNA viruses → L2-norm fixes (34% → 99% at 10-16kb)
-- 40B model: magnitude is informative → L2-norm hurts
-- Training data composition: adding plasmids to cellular class improves RNA virus recall by 4.7%
-- **Status**: COMPLETE, publication-ready
-
-### 4. Unsupervised Clustering
-- HDBSCAN on PCA-reduced 40B embeddings: ARI=0.903 (best config), NMI=0.782
-- **Naturally separates eukaryotic RNA viruses from dsDNA phages** (cluster of 277, 99% pure) — fully unsupervised, no labels used
-- GYP phage category is 100% dsDNA (936 genomes); RNA virus category is 99.8% eukaryotic RNA viruses + 2 RNA phages (Leviviridae)
-- Evo2, trained only on DNA, still distinguishes cDNA-converted RNA viral genomes from DNA viral genomes — the model captures fundamental compositional differences between DNA-origin and RNA-origin sequences
-- Best config: min_cluster_size=200, min_samples=5 → 4 clusters, 47% noise (typical for HDBSCAN on biological data)
-- K-Means weaker (ARI=0.2) — embedding manifold is non-linear
-- **Status**: VALIDATED on full GYP benchmark (13,055 sequences with 40B embeddings), needs figures
-
-**Important terminology note**: Use "dsDNA phages" (not "phages") and "eukaryotic RNA viruses" (not "RNA viruses") throughout the paper to avoid conflating with RNA phages (Leviviricetes, Cystoviridae). The GYP benchmark is specifically dsDNA phages.
-
-### 5. Per-Position Embeddings: Gene Structure & Codon Periodicity
-- **Gene boundary detection**: Coding regions have 1.72 ± 0.23× higher embedding norms than intergenic — consistent across 41 diverse sequences (phage, chromosome, plasmid, RNA virus, cellular). 91.7% coding/non-coding accuracy, 73.2% boundary recall.
-- **Codon periodicity** (KEY FINDING): Lag-3 autocorrelation of embedding norms is 0.55-0.59 in coding regions, near zero at lag-1/lag-2. The 3bp period is the **dominant FFT frequency**. Confirmed on both phage and E. coli chromosome.
-- **Offset-3 cosine inversion**: At 1bp offset, coding similarity < intergenic. At 3bp offset, it INVERTS (coding > intergenic). This is a binary signature of protein-coding DNA requiring no ORF analysis, codon tables, or training.
-- **Interpretation**: Evo2 implicitly learns the triplet genetic code from next-nucleotide prediction. The reading frame is the strongest structural feature in its per-position representations.
-- **RNA virus dark matter detection**: Codon periodicity can classify RNA virus vs dsDNA phage at 91.3% accuracy (5-fold CV, n=23). cos3_coding has Cohen's d = 2.83 — a massive effect size. Could be the first database-free RNA virus identifier.
-- **Status**: VALIDATED (periodicity on 40 sequences, RNA virus classification PoC on 23 sequences). Needs expansion to 100+ RNA virus sequences for robust validation.
-
-### 6. Head-to-Head with geNomad
-- geNomad completed on 13,417 sequences (22 min, 8 CPUs)
-- ViroSense wins: short fragments, overall sensitivity, AUC
-- geNomad wins: speed (500×), plasmid specificity, gene-level annotation, provirus detection
-- **Status**: COMPLETE for geNomad. DeepVirFinder/VIBRANT pending.
+### 7. Preprocessing Insights
+- L2-normalization: essential for 7B (63%→93% RNA recall), counterproductive for 40B
+- Training data composition: adding plasmids improves RNA virus recall 4.7%
+- Model scale: preprocessing must match model tier
+- **Transferable findings for anyone building classifiers on foundation model embeddings**
 
 ---
 
-## TODO List
-
-### Priority 1: Complete for Submission
-
-- [x] **Complete 40B RNA virus gap fill** — DONE (2026-03-17). All 13,417 sequences. RNA virus 10-16kb: 98.5%.
-- [x] **Expand gene boundary PoC to 20+ sequences** — DONE. 41 sequences across 5 categories.
-- [x] **Codon periodicity validation** — DONE. 40 sequences. lag-3 autocorr 0.635, offset-3 inversion 100% universal, 94.7% coding accuracy.
-- [x] **Bootstrap CIs with complete 40B** — DONE. `results/benchmark/comparison/bootstrap_ci_complete.json`.
-- [x] **Implement `virosense embed` command** — DONE. Separates expensive embedding step from analysis.
-- [x] **Implement `virosense scan` command** — DONE. Per-position analysis via CLI.
-- [x] **Fix `virosense classify`** — DONE. Custom task names, warning suppression.
-- [x] **CLI-test `virosense cluster`** — DONE. Works end-to-end on real data.
-- [x] **RNA dark matter validation** — COMPLETE (203/220 sequences). **97.5% accuracy**, 0.990 AUC. Zero Firmicutes false positives. cos3 is the dominant feature (50.9% importance).
-- [x] **Perplexity forensics pilot** — COMPLETE. 20 natural + 20 codon-optimized gene pairs. 75% accuracy from embedding features alone. Lag-1 autocorrelation distinguishes natural from optimized. Norm CV is the best feature (d = -0.92).
-
-- [ ] **Generate publication figures** (matplotlib/seaborn)
-  - Fig 1: Architecture concept diagram ("embed once, analyze many ways")
-  - Fig 2: Detection benchmark (ROC, length curves, bootstrap CIs)
-  - Fig 3: Embedding space (PCA, L2-norm, training data effects)
-  - Fig 4: 3-class contig typing (confusion matrix, vs geNomad)
-  - Fig 5: Per-position embeddings — codon periodicity FFT, offset-3 inversion, norm trajectory
-  - Fig 6: RNA virus dark matter (periodicity classification, pending batch completion)
-  - Fig S1: HDBSCAN clustering (UMAP visualization)
-  - Fig S2: Speed benchmarking
-  - Fig S3: Plasmid FP analysis (embedding space, training data composition effects)
-
-- [ ] **Run UMAP** for publication-quality clustering visualization
-
-### Priority 2: Strengthen for Reviewers
-
-- [ ] **DeepVirFinder benchmark** — needs working DVF installation (Theano/TF compat issue)
-  - Consider using the newer `deepvirfinder` pip package if available
-  - Or download pre-computed predictions if published on GYP data
-
-- [ ] **VIBRANT benchmark** — needs database download on HTCF
-  - Database is ~12 GB, requires figshare download
-  - Could submit separate SLURM job for database setup + benchmark
-
-- [ ] **VirSorter2 benchmark** — needs conda environment
-  - Most practical: install micromamba on HTCF scratch, create VS2 env
-  - Or use published VS2 results on GYP if available
-
-- [ ] **Real metagenome validation**
-  - Minimum: 1 sample with CheckV ground truth (e.g., SRR5747446 gut virome)
-  - Better: 3-5 diverse samples (gut, ocean, soil)
-  - Run ViroSense + geNomad on same assemblies, compare with CheckV
-
-- [ ] **Independent validation dataset**
-  - UHGV (873K virus genomes) or IMG/VR for an independent test set
-  - Shows generalization beyond GYP benchmark
-
-- [ ] **Retrain 7B classifier with L2-norm** on HTCF (formal production classifier)
-  - Also retrain 7B 3-class classifier
-  - Compare 7B+L2 vs 40B in head-to-head
-
-### Priority 3: Nice-to-Have
-
-- [ ] **Extract 3class plasmid training embeddings via 40B NIM**
-  - 3,053 sequences × ~50s = ~42 hrs
-  - Enables clean 3-class training without GYP leakage
-  - Would strengthen the 3-class results
-
-- [ ] **Ensemble: ViroSense + geNomad**
-  - Show that union of both tools outperforms either alone
-  - ViroSense catches short-fragment viruses geNomad misses; geNomad catches plasmid-like FPs
-  - Quantify the unique contribution of each tool
-
-- [ ] **Prophage benchmark**
-  - Need curated prophage dataset (PHASTER, PhiSpy, or manual curation)
-  - Validate the adaptive scanning approach on real prophages
-  - Could be supplementary or a separate paper
-
-- [ ] **Per-position gene calling model**
-  - Train a 1D-CNN/BiLSTM on per-position embeddings for gene prediction
-  - Benchmark against Prodigal on diverse genomes
-  - "Evo2 as a gene caller" — could be a separate short paper
-
-- [ ] **Functional region annotation from per-position**
-  - Label gene types (capsid, tail, integrase, etc.) in known phages
-  - Train per-position classifier for functional categories
-  - Would replace the annotate module's protein-based pipeline
-
-- [ ] **RNA virus training data for 3-class**
-  - Sample from RNA Virus Database (385K sequences)
-  - Extract 40B embeddings for ~3,000 RNA virus fragments
-  - Retrain 3-class with RNA viruses in viral class → fix 3-class RNA recall
-
----
-
-## Validation Status Matrix
-
-| Module | Unit tests | Real data benchmark | Publication-ready? |
-|--------|-----------|--------------------|--------------------|
-| **embed** (NEW) | 0 | ✅ CLI tested on real data with cached embeddings | **YES** |
-| **detect** (binary) | 47 | ✅ 13,417 seq + geNomad head-to-head + bootstrap CIs | **YES** |
-| **classify** (3-class) | 12 | ✅ 5-fold CV + held-out GYP + CLI training/prediction tested | **YES** |
-| **cluster** | 27 | ✅ HDBSCAN ARI=0.903 on 13K sequences; CLI tested on real data | **YES** (needs figures) |
-| **scan** (NEW) | 0 | ✅ 42 sequences via CLI; norm ratio, periodicity, boundaries all validated | **YES** |
-| **per-position analysis** | — | ✅ 40-seq codon periodicity (lag-3=0.635, 94.7% coding), RNA dark matter PoC (91.3%) | **YES** |
-| **prophage** | 36 | ❌ No real-data validation | Needs prophage benchmark |
-| **context** | 14 | Deprecated — superseded by scan | Not in this paper |
-| **annotate** | 109 | ❌ No real-data validation | Separate future paper |
-
----
-
-## Manuscript Outline (Draft)
+## Manuscript Outline (Revised)
 
 ### Title
-"DNA foundation model embeddings as a general-purpose representation for metagenomic sequence classification"
+"Frozen DNA foundation model embeddings reveal the genetic code and enable universal sequence characterization"
 
 ### Abstract
-- DNA foundation model embeddings serve as a universal sequence characterization framework
-- Trinucleotide frequencies achieve 93% of Evo2's accuracy for binary viral detection — the foundation model's unique value is in qualitatively different analyses: per-position gene structure, zero-shot generalization, compositional characterization, and anomaly detection
-- Per-position embeddings reveal the triplet genetic code (3bp codon periodicity) and enable 94.7% coding region detection without gene calling
-- RNA dark matter detection at 97.5% accuracy from periodicity features alone — database-free
-- Same embeddings support detection, contig typing, clustering, gene structure, prophage boundaries, and comprehensive biological profiling ("DNA passports")
-
-### Introduction
-- Viral metagenomics depends on detecting viral sequences in mixed microbial communities
-- Current tools (geNomad, VIBRANT, VirSorter2) use marker genes → fail on short/fragmentary data
-- DNA foundation models (Evo2) learn sequence representations from next-nucleotide prediction
-- We show these frozen representations are sufficient for multiple metagenomic tasks
+DNA foundation models learn rich representations of nucleotide sequences through unsupervised training, but how to extract and apply these representations for biological analysis remains unclear. We show that frozen per-position embeddings from Evo2 encode the triplet genetic code as their dominant structural feature — a 3-nucleotide periodicity that emerges without any supervised signal. This periodicity enables 94.7% coding region detection without gene calling and 97.5% database-free RNA virus identification from codon periodicity features alone. We develop ViroSense, a universal DNA characterization framework that produces multi-dimensional biological profiles ("DNA passports") from a single embedding extraction, supporting viral detection (99.7% phage sensitivity), contig typing, unsupervised clustering, gene structure analysis, and compositional characterization. We show that simple trinucleotide frequency classifiers achieve 93% of Evo2's accuracy for binary viral detection, with the foundation model's unique value concentrated in per-position analysis, zero-shot generalization to unseen sequence types, and compositional anomaly detection for novel element discovery.
 
 ### Results
-1. **ViroSense architecture**: embed once, classify many ways
-2. **Viral detection benchmark**: head-to-head with geNomad on GYP + RNA virus
-3. **Short-fragment advantage**: mechanistic explanation (composition vs gene content)
-4. **Embedding preprocessing**: L2-normalization, training data composition effects
-5. **3-class contig typing**: virus/plasmid/chromosome from same embeddings (94.5% CV accuracy)
-6. **Unsupervised structure**: HDBSCAN recovers biological categories (ARI=0.903), separates euk. RNA viruses from dsDNA phages (99% pure)
-7. **Per-position codon periodicity**: Evo2 implicitly learns the triplet genetic code — the dominant FFT frequency in coding regions is exactly 3bp, with offset-3 cosine inversion as a universal binary coding signature (94.7% coding accuracy, 100% of sequences)
-8. **RNA virus dark matter**: Eukaryotic RNA viruses have distinctively strong codon periodicity (lag-3 = 0.822 vs 0.624 for dsDNA phages). Enables database-free RNA virus identification — 91.3% accuracy (PoC on 23 sequences, expanded 220-sequence validation running)
-9. **CLI architecture**: "Embed once, analyze many ways" — 8 commands (embed, detect, classify, cluster, scan, prophage, build-reference, context), 6 validated on real data
+
+**1. Evo2 embeddings encode the genetic code** (Figure 1)
+- Per-position norm signal: coding 1.72× intergenic (41 sequences, 5 categories)
+- Codon periodicity: lag-3 autocorrelation 0.635, dominant FFT at 3bp
+- Offset-3 cosine inversion: universal binary coding signature (94.7% accuracy)
+- RNA viruses have strongest periodicity (0.822) — compositional signature of RNA-origin
+
+**2. Database-free RNA dark matter detection** (Figure 2)
+- 97.5% accuracy, 0.990 AUC from periodicity features (203 sequences)
+- Zero Firmicutes false positives
+- cos3 is the dominant feature (Cohen's d = 2.83)
+- Implications for novel RNA element discovery (Obelisks, novel viral lineages)
+
+**3. Universal characterization framework** (Figure 3)
+- DNA passport: identity + origin + structure + novelty from one embedding
+- Anomaly scoring for novel element detection
+- Characterize vs classify: multi-dimensional profiles vs binary labels
+- Application examples: prophage amelioration gradient, phylogenomic signal
+
+**4. Viral detection and the k-mer baseline** (Figure 4)
+- ViroSense 40B: 99.7% phage, 93.0% RNA virus, 95.4% accuracy
+- geNomad head-to-head: complementary strengths (short fragments vs plasmid specificity)
+- K-mer baseline: 93% accuracy at 1527× speed — honest comparison
+- Gap analysis: 6.3% of sequences need Evo2 (host-adapted phages, short fragments)
+- Two-tier pipeline: k-mer screening → Evo2 characterization
+
+**5. Multi-task from one embedding** (Figure 5)
+- 3-class contig typing (94.5%)
+- Unsupervised clustering (ARI=0.903)
+- Alignment-free phylogenomics (r=0.504)
+- Prophage amelioration gradient (3 states visible from coarse scores)
+- "Embed once, analyze many ways"
 
 ### Discussion
-- Foundation models as general-purpose extractors vs task-specific tools
-- Complementarity with geNomad (different signals: composition vs gene content)
-- Practical deployment: two-tier architecture (7B screening, 40B publication)
-- Speed trade-off: 500× slower embedding extraction, but instant reclassification
-- Implications for other foundation model applications in genomics
+- The genetic code discovery: what it means for understanding DNA foundation models
+- Characterization vs classification: why multi-dimensional profiles matter
+- Honest speed comparison: Evo2 is 1500× slower but the "embed once" architecture amortizes the cost
+- K-mer baselines are strong for detection — foundation models add unique per-position and zero-shot capabilities
+- Implications: alignment-free phylogenomics, RNA dark matter, prophage evolution, forensic detection
+- Limitations: speed, GPU requirement, e14-like fully ameliorated elements invisible
+- Future: knowledge distillation for planetary-scale screening (Logan)
 
 ### Methods
-- Evo2 embedding extraction (NIM API, mean pooling, per-position)
-- MLP classifier architecture (sklearn, 512→128, Platt calibration)
-- Benchmark datasets (GYP, RNA Virus Database, 3-class reference)
-- Bootstrap confidence intervals (10,000 resamples)
-- geNomad comparison (v1.11.2, default parameters)
+- Evo2 40B/7B embedding extraction (NIM API, per-position)
+- Mean-pooling, L2-normalization, and preprocessing
+- MLP classifier (sklearn, 512→128, Platt calibration)
+- K-mer feature computation (trinucleotide + dinucleotide frequencies)
+- Benchmark datasets (GYP 13,417 seqs, RNA Virus Database 1,000 seqs)
+- Bootstrap CIs (10,000 resamples)
+- geNomad v1.11.2 comparison
+- HDBSCAN clustering with PCA preprocessing
+- Per-position periodicity analysis (autocorrelation, FFT, cosine similarity)
+- DNA passport characterization (cosine to category centroids, anomaly scoring)
 
 ---
 
-## Timeline Estimate
+## Figure Set (5 main + supplementary)
 
-| Task | Effort | Blocked by |
-|------|--------|-----------|
-| 40B gap fill | Running now | NIM API |
-| Gene boundary expansion (20 seqs) | 1-2 hours | NIM API calls |
-| Generate figures | 1-2 days | Gap fill, gene boundary |
-| DVF/VIBRANT/VS2 benchmarks | 1 day | Tool installation |
-| Real metagenome validation | 2-3 days | Data + geNomad runs |
-| Write manuscript | 1-2 weeks | Figures |
-| Revisions | Ongoing | Reviewer feedback |
+### Figure 1: The Genetic Code in Embeddings
+- A: Embedding norm trajectory along a phage genome (coding vs intergenic)
+- B: Autocorrelation function — peak at lag-3 (codon periodicity)
+- C: FFT spectrum — dominant frequency at exactly 3.0 bp
+- D: Offset-3 cosine inversion: coding > intergenic at 3bp offset
+- E: Cross-category validation (norm ratio 1.72× across 41 sequences)
+
+### Figure 2: RNA Dark Matter Detection
+- A: Periodicity features by category (cos3, lag3 — RNA virus highest)
+- B: Classification performance (97.5% accuracy, 0.990 AUC)
+- C: Feature importance (cos3 dominates at 50.9%)
+- D: Obelisk case study — how characterization would flag novel RNA elements
+
+### Figure 3: Universal Characterization (DNA Passports)
+- A: Architecture diagram (embed → multi-task analysis)
+- B: Example DNA passports for phage, RNA virus, chromosome, plasmid
+- C: Prophage amelioration gradient (DLP12 active → e14 invisible)
+- D: Anomaly scoring: RNA viruses at 99.8th percentile
+
+### Figure 4: Viral Detection and K-mer Baseline
+- A: ViroSense vs geNomad: sensitivity by fragment length (1-15kb)
+- B: Bootstrap CIs for key metrics
+- C: K-mer baseline: 93% accuracy, 1527× faster
+- D: Gap analysis: where Evo2 adds value (host-adapted phages, short fragments)
+- E: Two-tier pipeline diagram
+
+### Figure 5: Multi-Task from One Embedding
+- A: HDBSCAN clustering (UMAP, colored by category, ARI=0.903)
+- B: 3-class contig typing confusion matrix
+- C: Alignment-free phylogenomics (distance hierarchy by taxonomic level)
+- D: Speed comparison table (embed once → instant analysis)
+
+### Supplementary
+- S1: L2-normalization analysis (7B vs 40B)
+- S2: Training data composition effects (plasmid inclusion improves RNA recall)
+- S3: Plasmid FP embedding space analysis
+- S4: Detailed benchmark tables with bootstrap CIs
+- S5: Per-position analysis on all 41 sequences (norm ratio, periodicity by category)
+- S6: Full E. coli K12 prophage scores (all 9 known cryptic prophages)
 
 ---
 
-## Files Reference
+## What's Ready vs What's Needed
 
-| Document | Contents |
-|----------|----------|
-| `docs/rna_virus_length_analysis.md` | All benchmark findings (detect, 3-class, plasmid analysis, L2-norm) |
-| `docs/poc_gene_boundaries.md` | Per-position embedding gene boundary PoC |
-| `docs/speed_benchmarking.md` | Speed comparison across tools |
-| `docs/biosurveillance_research_plan.md` | Future directions (perplexity forensics, etc.) |
-| `results/benchmark/comparison/` | Comparison results JSON + LaTeX table |
-| `results/benchmark/comparison/bootstrap_ci.json` | Bootstrap confidence intervals |
-| `results/poc_gene_boundaries*/` | Per-position embedding analysis data |
-| `scripts/compare_tools.py` | Tool comparison analysis |
-| `scripts/bootstrap_ci.py` | Bootstrap CI computation |
-| `scripts/poc_gene_boundaries.py` | Gene boundary detection PoC |
+| Component | Status | Action needed |
+|-----------|--------|--------------|
+| All benchmark data | ✅ Complete | None |
+| K-mer baseline comparison | ✅ Complete | None |
+| RNA dark matter (203 seqs) | ✅ Complete | None |
+| Codon periodicity (40 seqs) | ✅ Complete | None |
+| Gene boundaries (41 seqs) | ✅ Complete | None |
+| Phylogenomics pilot | ✅ Complete | None |
+| Prophage amelioration | ✅ Complete (coarse) | Full scan nice-to-have |
+| Forensics pilot | ✅ Complete | Supplementary |
+| Characterize framework | ✅ Complete | None |
+| Two-tier --fast pipeline | ✅ Complete | None |
+| **Figures** | ❌ Not started | **START HERE** |
+| **Manuscript text** | ❌ Not started | After figures |
+| DVF/VIBRANT/VS2 comparison | ❌ Not done | Nice-to-have, not required |
+| Real metagenome validation | ❌ Not done | Would strengthen but not essential |
+
+---
+
+## Timeline
+
+| Task | Effort | Priority |
+|------|--------|----------|
+| **Generate figures** | 3-5 days | **NOW** |
+| **Write manuscript** | 2-3 weeks | After figures |
+| Real metagenome validation | 3-5 days | If time permits |
+| Additional tool comparisons | 2-3 days | Nice-to-have |
+| Revisions | Ongoing | After submission |
