@@ -65,6 +65,56 @@ def embed(input_file, output, backend, model, layer, batch_size,
 @main.command()
 @click.option("-i", "--input", "input_file", required=True,
               type=click.Path(exists=True),
+              help="Input FASTA of DNA sequences")
+@click.option("-o", "--output", required=True, type=click.Path(),
+              help="Output directory for characterization reports")
+@click.option("--backend", type=click.Choice(["nim", "mlx", "local"]),
+              default="nim", help="Evo2 inference backend (default: nim)")
+@click.option("--model", type=click.Choice(["evo2_1b_base", "evo2_7b", "evo2_40b"]),
+              default="evo2_7b",
+              help="Evo2 model. Cloud NIM auto-selects evo2_40b (default: evo2_7b)")
+@click.option("--layer", default="blocks.28.mlp.l3",
+              help="Evo2 layer for embedding extraction")
+@click.option("--cache-dir", type=click.Path(), default=None,
+              help="Directory with cached embeddings")
+@click.option("--reference-panel", type=click.Path(exists=True), default=None,
+              help="Reference embeddings NPZ with known categories")
+@click.option("--nim-url", default=None,
+              help="Self-hosted NIM container URL")
+@click.option("--max-concurrent", default=None, type=int,
+              help="Max concurrent NIM requests")
+@click.option("--per-position", is_flag=True, default=False,
+              help="Include per-position analysis (coding, periodicity)")
+def characterize(input_file, output, backend, model, layer, cache_dir,
+                 reference_panel, nim_url, max_concurrent, per_position):
+    """Generate comprehensive biological profiles for DNA sequences.
+
+    Produces a multi-dimensional "DNA passport" for each sequence combining:
+    - Identity: similarity to known categories, nearest match, anomaly score
+    - Origin: viral/cellular, RNA/DNA, mobile/chromosomal signatures
+    - Structure: coding density, codon periodicity (with --per-position)
+    - Novelty: how unusual is this sequence compared to known biology?
+
+    Outputs both a detailed JSON and a flat TSV summary.
+    """
+    from virosense.subcommands.characterize import run_characterize
+    run_characterize(
+        input_file=input_file,
+        output_dir=output,
+        backend=backend,
+        model=model,
+        layer=layer,
+        cache_dir=cache_dir,
+        reference_panel=reference_panel,
+        nim_url=nim_url,
+        max_concurrent=max_concurrent or 3,
+        per_position=per_position,
+    )
+
+
+@main.command()
+@click.option("-i", "--input", "input_file", required=True,
+              type=click.Path(exists=True),
               help="Input FASTA file with metagenomic contigs")
 @click.option("-o", "--output", required=True, type=click.Path(),
               help="Output directory")
