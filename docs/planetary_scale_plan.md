@@ -166,6 +166,85 @@ No other tool can do this because:
 - **RNA dark matter**: Logan metatranscriptomes are the validation dataset
 - **Obelisk case study**: Logan is where Obelisks were originally found — we could rediscover them and find their relatives
 
+## Hardware Requirements
+
+### By Phase
+
+| Phase | Hardware | Duration | Cloud cost estimate |
+|-------|----------|----------|-------------------|
+| 0. Distillation training data | 8× L40S or H100 | 2-4 weeks | $9-18K |
+| 1. Train distilled model | 4× A100 | 1-2 weeks | $2-4K |
+| 2. Screen Logan metatranscriptomes | 1000 CPU cores (AWS Batch) | 1 day | $0.5-2K |
+| 3. Evo2 characterization of candidates | 32-100× L40S | 1-3 weeks | $6-28K |
+| 4. Clustering + analysis | 1× high-memory node | Days | Minimal |
+| **Total** | | **2-3 months** | **$18-52K** |
+
+### Phase 0: Distillation Training Data (one-time investment)
+
+Generate 5M Evo2 embeddings as teacher signal for the student model.
+
+| Setup | Time | Cost |
+|-------|------|------|
+| 8× L40S (7B) | **24 days** | ~$9K |
+| 8× H100 (7B) | **12 days** | ~$18K |
+| 24× H100 (40B, 8 instances) | 36 days | ~$140K (overkill) |
+
+**Recommended**: 8× L40S for 24 days on WashU RIS. Standard HPC allocation.
+
+### Phase 1: Train Distilled Model
+
+Standard deep learning training: 1-4× A100 for 1-2 weeks. The student model is tiny (~10M parameters vs Evo2's 7B). Any lab with GPU access can do this.
+
+### Phase 2: Screen Logan (the cheap phase)
+
+The distilled model runs on **CPU only**. No GPUs needed.
+
+| Setup | Time | Cost |
+|-------|------|------|
+| 100 CPU cores (1 HPC node) | 11 days | Free (HPC allocation) |
+| 1000 CPU cores (AWS Batch) | **1 day** | $500-1000 |
+| 10,000 CPU cores (AWS auto-scale) | **2 hours** | $500-2000 |
+
+AWS Batch processes Logan data directly from S3 — no data transfer. A single $1000 job screens every public metatranscriptome ever generated.
+
+### Phase 3: Evo2 Characterization (the GPU phase)
+
+Full characterization on the 1-5% flagged by screening.
+
+| Volume | Setup | Time | Cost |
+|--------|-------|------|------|
+| 10M contigs | 8× L40S | 48 days | $5.5K |
+| 10M contigs | 32× L40S | **12 days** | $5.5K |
+| 50M contigs | 100× L40S | **19 days** | $28K |
+
+### Phase 4: Analysis
+
+All cached embeddings. HDBSCAN on 50M sequences needs a high-memory node (512GB RAM, hours). Everything else runs on a laptop.
+
+### What WashU Has
+
+| Resource | Available | Sufficient |
+|----------|-----------|-----------|
+| WashU RIS H100s | Yes (needs onboarding) | Yes — 8-32 GPU jobs |
+| WashU RIS storage | 16 PB Ceph + 2 PB NVMe | Yes — embedding caches fit easily |
+| WashU RIS CPU cluster | Yes | Yes — 1000+ cores |
+| HTCF L40S | 1× on n099 | No — too slow for planetary scale |
+
+### What We'd Need to Acquire
+
+| Resource | Purpose | How to get it |
+|----------|---------|--------------|
+| WashU RIS access | Multi-GPU H100, storage | Onboarding application (priority #1) |
+| AWS credits | Process Logan on S3 in-place | AWS Open Science program or NVIDIA Academic Grant |
+| NVIDIA Academic Grant | DGX Cloud access | Application to NVIDIA (accelerates Phase 0 and 3) |
+
+### Cost Context
+
+- A single NovaSeq sequencing run: $5-15K
+- This entire project: $18-52K (2-5 sequencing runs)
+- Result: survey of ALL public metatranscriptomes for novel viruses
+- That is extraordinary value per dollar
+
 ## Sources
 
 - [Logan: Planetary-Scale Genome Assembly Surveys Life's Diversity](https://www.biorxiv.org/content/10.1101/2024.07.30.605881v1)
