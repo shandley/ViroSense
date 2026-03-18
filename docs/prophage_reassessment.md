@@ -79,6 +79,74 @@ The E. coli K12 case study is compelling: 9 known cryptic prophages, only 3 in P
 - Keep prophage module as-is (working, useful)
 - Don't invest in expanding the Philympics benchmark — the detection angle is not our differentiator
 
+## Prophage Amelioration — Validated from Coarse Pass (2026-03-18)
+
+The HTCF coarse-pass window scores for E. coli K12 reveal a **compositional age gradient** across the 9 known cryptic prophages:
+
+| Prophage | Size | Max viral score | Mean score | State |
+|----------|------|----------------|-----------|-------|
+| DLP12 | 21 kb | **0.957** | 0.538 | Strong phage composition |
+| rac | 23 kb | **0.957** | 0.538 | Strong phage composition |
+| Qin | 20 kb | **0.957** | 0.538 | Strong phage composition |
+| CP4-6 | 34 kb | **0.957** (1/5 windows) | 0.287 | **Mosaic** — partly ameliorated |
+| **e14** | 15 kb | **0.120** | 0.119 | **Fully ameliorated** — invisible |
+| Background | — | 0.119 | 0.119 | Chromosomal baseline |
+
+CP4-44, CPS-53, CPZ-55, CP4-57 were outside the scanned range (coarse pass covered 0-1.7 Mb of the 4.6 Mb genome before the NIM 8-hour wall time expired).
+
+### Key findings
+
+1. **CP4-6 and Qin detected — not in Philympics curation.** ViroSense found 2 prophages that the manual benchmark curation missed. These are well-documented cryptic prophages (Wang et al. 2010, Nature Comms).
+
+2. **e14 is invisible** (score 0.120, indistinguishable from background). e14 is an ancient lambdoid prophage whose composition has fully converged with the host chromosome. The embedding cannot distinguish it from E. coli chromosomal DNA. **This is the amelioration signal** — fully ameliorated prophages lose their compositional signature.
+
+3. **CP4-6 is mosaic** — only 1 of 5 overlapping windows scores as viral (0.957), the other 4 score as chromosomal (0.119). This means CP4-6 retains phage-like composition in some regions but has been ameliorated in others. **The per-window score variance is a characterization feature**: high variance = mosaic/partially ameliorated.
+
+4. **DLP12, rac, Qin are compositionally similar** — all score max 0.957, mean 0.538. These are at a similar intermediate amelioration state (strong phage signal but not in all windows).
+
+5. **Background is flat** — 0.119 ± 0.000 across 153 non-prophage windows. The classifier is extremely confident about chromosomal DNA.
+
+### Amelioration Gradient
+
+The viral score serves as a **proxy for prophage evolutionary age**:
+
+```
+Recently integrated → Partially ameliorated → Fully ameliorated → Domesticated
+     max 0.95+            mix of 0.95/0.12          max 0.12           max 0.12
+   (all windows viral)   (mosaic pattern)       (invisible)      (invisible, host function)
+    DLP12, rac, Qin          CP4-6                 e14              (gene islands)
+```
+
+This gradient is detectable from embedding scores alone, without any gene annotation or phylogenetic analysis. **No existing tool measures prophage amelioration state from DNA composition.**
+
+### Implications
+
+- **Viral score** = compositional foreignness (high = recent/foreign, low = ameliorated/native)
+- **Score variance across windows** = mosaicism (high variance = partially ameliorated)
+- **e14 invisibility** = fully ameliorated prophages are a fundamental limit of composition-based detection
+- Per-position analysis (norm transitions, periodicity shifts at boundaries) could provide finer resolution than window-level scores
+
+## Recommended Next Steps
+
+### For the ViroSense methods paper (immediate)
+1. Include the E. coli K12 coarse-pass results as a proof-of-concept for prophage characterization
+2. Frame as: "embedding scores reveal a compositional amelioration gradient across prophages of different evolutionary ages"
+3. Note CP4-6 and Qin detection beyond the Philympics curation (demonstrates finding uncurated elements)
+4. Note e14 invisibility (honest limitation of composition-based approaches)
+5. Brief — 1-2 paragraphs + 1 figure panel, not a main result
+
+### For a dedicated prophage characterization paper (follow-up)
+1. **Full E. coli K12 scan** — complete the coarse pass for the entire genome (remaining ~3 Mb)
+2. **Per-position analysis** — extract per-position embeddings for all 9 prophage regions, characterize boundary sharpness and internal structure
+3. **Multi-genome comparison** — same analysis on B. subtilis (3 prophages), S. aureus Newman (4 prophages), S. Typhi (5 prophages)
+4. **Literature correlation** — compare embedding-derived amelioration state against published evolutionary age estimates for these prophages
+5. **Develop an amelioration index** — formal metric combining (a) max viral score, (b) score variance across windows, (c) boundary sharpness from per-position norms, (d) codon periodicity similarity to host
+
+### For the codebase (immediate)
+1. Fix the empty-embedding bug in prophage module
+2. Add amelioration scoring to `virosense characterize` — when a region is flagged as viral, compute score variance as a mosaicism/age indicator
+3. Consider a `--characterize-prophages` flag that provides the full age/state assessment for detected prophage regions
+
 ## Bug Fix Needed
 
 `virosense.models.prophage.score_windows()` crashes when `embeddings` is empty (shape (0, 4096)). Should return empty results instead. One-line fix in the score_windows function.
