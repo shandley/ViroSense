@@ -92,6 +92,12 @@ Binary viral detection (where we compete with geNomad and k-mer baselines) is a 
 ### Title
 "Frozen DNA foundation model embeddings reveal the genetic code and enable universal sequence characterization"
 
+### Prior Art Context (see docs/prior_art.md for full analysis)
+- 3bp periodicity in coding DNA: known since 1982 (Fickett), NOT novel
+- Foundation models learn gene structure: shown qualitatively (Goodfire blog 2025, NOT peer-reviewed; Nucleotide Transformer, Nature Methods 2024)
+- Codon-level foundation models: cdsFM/CodonFM (2024) trains ON codons, learns genetic code — but given the reading frame by tokenization
+- **Our novelty**: quantitative per-position periodicity in nucleotide-resolution model (lag-3 autocorr, offset-3 cosine inversion, coding detection, RNA dark matter). The model discovers codon structure without being told about it. Applications (94.7% coding detection, 97.5% RNA dark matter) are entirely new.
+
 ### Abstract
 DNA foundation models learn rich representations of nucleotide sequences through unsupervised training, but how to extract and apply these representations for biological analysis remains unclear. We show that frozen per-position embeddings from Evo2 encode the triplet genetic code as their dominant structural feature — a 3-nucleotide periodicity that emerges without any supervised signal. This periodicity enables 94.7% coding region detection without gene calling and 97.5% database-free RNA virus identification from codon periodicity features alone. We develop ViroSense, a universal DNA characterization framework that produces multi-dimensional biological profiles ("DNA passports") from a single embedding extraction, supporting viral detection (99.7% phage sensitivity), contig typing, unsupervised clustering, gene structure analysis, and compositional characterization. We show that simple trinucleotide frequency classifiers achieve 93% of Evo2's accuracy for binary viral detection, with the foundation model's unique value concentrated in per-position analysis, zero-shot generalization to unseen sequence types, and compositional anomaly detection for novel element discovery.
 
