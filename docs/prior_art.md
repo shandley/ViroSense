@@ -36,7 +36,7 @@ Last updated: 2026-03-18
 
 **Prior art**: None found. No prior work has measured cosine similarity between embeddings at different offsets and shown the inversion between coding and intergenic regions.
 
-**Novelty level**: HIGH. Novel measurement and novel application (94.7% coding detection).
+**Novelty level**: HIGH. Novel measurement and novel application (94.7% coding detection). Validated across all domains of life: 64/65 coding sequences (98.5%) across 25+ phyla from Archaea, Bacteria, and Eukarya show the inversion; 6/7 non-coding controls correctly lack it. GC content range 20–66%. Works with non-standard genetic codes (mitochondrial) and synthetic sequences.
 
 ### Claim 4: RNA viruses have strongest codon periodicity (0.822 vs 0.624)
 
@@ -74,6 +74,19 @@ Last updated: 2026-03-18
 
 **Novelty level**: LOW (the comparison), but HIGH (the honest framing of when foundation models add value).
 
+### Claim 9: Mean-pooled DNA embeddings cluster by protein identity across all domains (function > taxonomy > GC)
+
+**Prior art**:
+- Merchant, King, Nguyen & Hie (Nature, 2025): Evo1 learns functional *context* — gene neighbors predict function, genomic "autocomplete" generates novel functional proteins. But they show semantic context, not protein-identity clustering in embedding space. Prokaryotes only.
+- FANTASIA (Communications Biology, 2025): Protein LM embeddings transfer GO terms across species via nearest-neighbor search. Same principle, but at the **protein** level using ESM-2/ProtT5. Not DNA-only.
+- gLM (Nature Communications, 2024): Genomic language model clusters genes by function — but uses **ESM2 protein embeddings** as input, not raw DNA.
+- "Are genomic language models all you need?" (Bioinformatics, 2024): DNA models competitive with protein LMs on protein tasks. Evaluates supervised prediction, not unsupervised clustering.
+- Evo2 cross-species variant classification (Research Square, 2025): Mean-pooled Evo2 embeddings transfer cross-species for variant effect prediction. Confirms cross-species signal but for variant classification, not gene identity.
+
+**Our contribution**: First demonstration that a pure DNA foundation model's mean-pooled embeddings cluster genes by protein identity (actin with actin, GAPDH with GAPDH) across **all three domains of life**, with function dominating over taxonomy and GC content. No protein translation, no protein LM, no functional labels. The model has learned the central dogma — that DNA encodes specific proteins — from next-nucleotide prediction alone.
+
+**Novelty level**: HIGH. The specific finding (same gene from Archaea, Bacteria, Eukarya clustering together in DNA embedding space, with function > taxonomy > GC) has not been reported. The closest work (Merchant et al.) shows functional context, not identity.
+
 ## Key References
 
 ### Peer-Reviewed
@@ -86,6 +99,11 @@ Last updated: 2026-03-18
 | DNA Foundation Models Benchmark (Nature Comms) | 2025 | Benchmarks 5 DNA models on genomic tasks | Peer-reviewed |
 | Jenkins & Holmes (PLOS ONE) | 2003 | RNA virus codon usage bias | Peer-reviewed |
 | Lawrence & Ochman (Genetics) | 1997 | Amelioration of laterally transferred genes | Peer-reviewed |
+| Merchant et al. (Nature) | 2025 | Evo1 "semantic design" — functional context from genomic language model | Peer-reviewed |
+| FANTASIA (Communications Biology) | 2025 | Protein LM functional annotation via embedding nearest-neighbors | Peer-reviewed |
+| gLM (Nature Communications) | 2024 | Genomic language model for protein co-regulation (uses ESM2 input) | Peer-reviewed |
+| Evo1 (Science) | 2024 | 7B DNA model, zero-shot function prediction via log-likelihoods | Peer-reviewed |
+| "Are gLMs all you need?" (Bioinformatics) | 2024 | DNA models competitive with protein LMs on protein tasks | Peer-reviewed |
 
 ### NOT Peer-Reviewed
 | Reference | Year | Relevance | Status |
@@ -109,4 +127,4 @@ Last updated: 2026-03-18
 - Acknowledge Nucleotide Transformer — they showed coding/non-coding separation in embeddings
 
 ### Suggested framing
-> "The 3-base periodicity of protein-coding DNA has been known for decades and exploited in gene-finding algorithms. We show that this fundamental property manifests as a measurable signal in nucleotide-resolution foundation model per-position embeddings — specifically as a lag-3 autocorrelation peak and an offset-3 cosine inversion between coding and intergenic regions. While prior work has shown that DNA foundation models learn to distinguish coding from non-coding sequences (Dalla-Torre et al. 2024, Goodfire 2025), we quantify this for the first time through per-position embedding analysis and demonstrate novel applications: 94.7% coding region detection without gene calling, and 97.5% database-free RNA virus identification from periodicity features alone."
+> "The 3-base periodicity of protein-coding DNA has been known for decades and exploited in gene-finding algorithms. We show that this fundamental property manifests as a measurable signal in nucleotide-resolution foundation model per-position embeddings — specifically as a lag-3 autocorrelation peak and an offset-3 cosine inversion between coding and intergenic regions. While prior work has shown that DNA foundation models learn to distinguish coding from non-coding sequences (Dalla-Torre et al. 2024, Goodfire 2025), we quantify this for the first time through per-position embedding analysis and demonstrate novel applications: 94.7% coding region detection without gene calling, and 97.5% database-free RNA virus identification from periodicity features alone. The offset-3 cosine inversion is universal across all domains of life — 64/65 coding sequences (98.5%) spanning 25+ phyla from Archaea, Bacteria, and Eukarya show the inversion, while 6/7 non-coding controls correctly lack it (GC content range 20–66%). The signal is independent of GC content, genetic code variant, and sequence origin."
