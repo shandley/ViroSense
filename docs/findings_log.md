@@ -103,15 +103,18 @@ Last updated: 2026-03-20
 
 **What**: Periodicity features alone distinguish RNA viruses from all other categories.
 
-**Evidence**:
-- 97.5% accuracy, 0.990 AUC (203 sequences, 4 categories)
-- cos3 is dominant feature (Cohen's d = 2.83, 50.9% importance)
-- Zero Firmicutes phage false positives (0/25)
+**Evidence (recomputed 2026-03-21, 7B decoder.layers.10)**:
+- **95.2% accuracy, 0.982 AUC** (207 sequences, 4 categories, 5-fold CV)
+- inversion_gap is top feature (46.6% importance, Cohen's d = 2.48)
+- cos1 is 2nd (27.3%, d = 2.10) — RNA viruses have elevated adjacent-nucleotide similarity
+- inversion_gap alone: 92.3% accuracy, 0.959 AUC
 - Database-free, no homology, no gene calling
 
-**Significance**: Novel capability — first database-free RNA virus identifier from DNA composition.
+**Original claim (40B blocks.28.mlp.l3, March 2026)**: 97.5% / 0.990 AUC — from a layer that is no longer accessible via the current NIM API. The recomputed numbers at blocks.10 are lower but still strong.
 
-**Status**: CONFIRMED. Figure 2.
+**Significance**: Novel capability — database-free RNA virus identification from periodicity features alone.
+
+**Status**: RECONFIRMED with updated numbers. Figure 2.
 
 ## Finding 9: Prophage Amelioration Gradient
 
