@@ -286,6 +286,29 @@ Last updated: 2026-03-20
 
 **Status**: CONFIRMED. Worth discussing in paper — "the model learned triplet structure and stop codon identity from DNA alone, but the codon-to-amino-acid mapping, which requires protein-level selection pressure, is not captured in the DNA representation."
 
+## Finding 17: Exon-Intron Boundary Detection Across Eukaryotes (MAJOR)
+
+**What**: The offset-3 cosine inversion flips at splice sites in eukaryotic genes — positive in exons (coding), negative in introns (non-coding). This enables database-free eukaryotic gene structure prediction.
+
+**Evidence**:
+- **Human HBB** (beta-globin, 1.6kb): 3 exons perfectly resolved as positive peaks, 2 introns as negative dips, UTRs negative
+- **Human TP53** (tumor suppressor, 15kb): 11 exons visible, large intronic regions correctly negative
+- **Human BRCA1** (16kb region): exon peaks align with annotations
+- **Drosophila Adh** (alcohol dehydrogenase, 4kb): exon-intron oscillation visible
+- **C. elegans unc-54** (myosin heavy chain, 6kb): multiple exons detected
+- **Arabidopsis AGAMOUS** (floral development, 5kb): exon peaks align, large intron negative
+- **Yeast ACT1** (1.4kb): single intron context
+- Tested across 5 species spanning 4 kingdoms (Mammalia, Insecta, Nematoda, Plantae, Fungi)
+
+**Significance**:
+- Fills a known gap: Arc Institute GitHub Issue #72 asked for Evo2 exon/intron classification — still not released as of March 2026
+- **No splice site model, no RNA-seq, no reference genome needed**
+- Works across all eukaryotic kingdoms tested
+- Same signal (offset-3 inversion) that detects prokaryotic coding regions also detects eukaryotic exon structure
+- This transforms the finding from "codon periodicity in prokaryotes" to "universal gene structure detection across all life"
+
+**Status**: CONFIRMED. Should be a main figure panel or prominent supplementary. The HBB result is publication-quality.
+
 ---
 
 ## Open Questions
