@@ -115,7 +115,14 @@ def main():
                      linewidth=0.3, width=0.65)
 
     ax_a.set_xticks(x_pos)
-    ax_a.set_xticklabels([d[:5] for d in domains_present], fontsize=5.5, rotation=45, ha="right")
+    short_labels = {
+        "Archaea": "Archaea", "Bacteria": "Bacteria", "Vertebrata": "Vertebr.",
+        "Invertebrata": "Invertebr.", "Plantae": "Plantae", "Fungi": "Fungi",
+        "Protista": "Protista", "Algae": "Algae", "Organellar": "Organellar",
+        "Virus": "Virus",
+    }
+    ax_a.set_xticklabels([short_labels.get(d, d) for d in domains_present],
+                          fontsize=5.5, rotation=45, ha="right")
     ax_a.set_ylabel("Inversion detected (%)")
     ax_a.set_ylim(82, 102)
     ax_a.set_title("A   Coding detection by domain (N=459)",

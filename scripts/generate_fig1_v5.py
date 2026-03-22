@@ -345,12 +345,12 @@ def _draw_boxplot(ax, results):
     domain_order = [d for d in domain_order if d in domain_data]
 
     labels = {
-        "Archaea": "Arc", "Bacteria": "Bac", "Vertebrata": "Vert",
-        "Invertebrata": "Inv", "Plantae": "Plant", "Fungi": "Fungi",
-        "Protista": "Prot", "Algae": "Algae", "Organellar": "Org",
-        "Virus": "Virus", "Non-coding": "NC",
+        "Archaea": "Archaea", "Bacteria": "Bacteria", "Vertebrata": "Vertebr.",
+        "Invertebrata": "Invertebr.", "Plantae": "Plantae", "Fungi": "Fungi",
+        "Protista": "Protista", "Algae": "Algae", "Organellar": "Organellar",
+        "Virus": "Virus", "Non-coding": "Non-coding",
     }
-    short = [labels.get(d, d[:5]) for d in domain_order]
+    short = [labels.get(d, d) for d in domain_order]
 
     bp = ax.boxplot([domain_data[d] for d in domain_order], tick_labels=short,
                      patch_artist=True, widths=0.6,
