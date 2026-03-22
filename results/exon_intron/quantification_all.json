@@ -6,7 +6,68 @@
     "recall": 0.9670152855993563,
     "precision": 0.5183268650280293,
     "accuracy": 0.7815918521312712,
-    "coding_fraction": 0.23443983402489627
+    "coding_fraction": 0.23443983402489627,
+    "seq_len": 5302
+  },
+  {
+    "gene": "arabidopsis_AP1",
+    "species": "A. thaliana",
+    "f1": 0.5297148746135348,
+    "recall": 0.9542079207920792,
+    "precision": 0.3666191155492154,
+    "accuracy": 0.6624753451676528,
+    "coding_fraction": 0.1992110453648915,
+    "seq_len": 4056
+  },
+  {
+    "gene": "arabidopsis_FLC",
+    "species": "A. thaliana",
+    "f1": 0.46267496111975115,
+    "recall": 0.8775811209439528,
+    "precision": 0.31414994720168954,
+    "accuracy": 0.7722103181143893,
+    "coding_fraction": 0.11175210153288281,
+    "seq_len": 6067
+  },
+  {
+    "gene": "arabidopsis_LFY",
+    "species": "A. thaliana",
+    "f1": 0.7913669064748201,
+    "recall": 0.9921568627450981,
+    "precision": 0.658168574401665,
+    "accuracy": 0.7567469000729394,
+    "coding_fraction": 0.4649890590809628,
+    "seq_len": 2742
+  },
+  {
+    "gene": "arabidopsis_PI",
+    "species": "A. thaliana",
+    "f1": 0.6237064910630292,
+    "recall": 1.0,
+    "precision": 0.4531784005468216,
+    "accuracy": 0.6937212863705973,
+    "coding_fraction": 0.25382848392036755,
+    "seq_len": 2612
+  },
+  {
+    "gene": "celegans_lin12",
+    "species": "C. elegans",
+    "f1": 0.8089738735327529,
+    "recall": 0.9960372960372961,
+    "precision": 0.68106471150781,
+    "accuracy": 0.8206541059367224,
+    "coding_fraction": 0.381265552790615,
+    "seq_len": 11252
+  },
+  {
+    "gene": "celegans_pha4",
+    "species": "C. elegans",
+    "f1": 0.6842470506592643,
+    "recall": 0.9723865877712031,
+    "precision": 0.5278372591006424,
+    "accuracy": 0.8121387283236994,
+    "coding_fraction": 0.2093311312964492,
+    "seq_len": 7266
   },
   {
     "gene": "celegans_unc54",
@@ -15,16 +76,78 @@
     "recall": 0.9551219512195122,
     "precision": 0.6231699554423934,
     "accuracy": 0.8976580044914982,
-    "coding_fraction": 0.16442091754892524
+    "coding_fraction": 0.16442091754892524,
+    "seq_len": 6234
+  },
+  {
+    "gene": "chicken_OVAL",
+    "species": "G. gallus",
+    "f1": 0.5673100415343268,
+    "recall": 1.0,
+    "precision": 0.39597544338335605,
+    "accuracy": 0.7663280116110305,
+    "coding_fraction": 0.15318643620530412,
+    "seq_len": 7579
+  },
+  {
+    "gene": "chicken_SHH",
+    "species": "G. gallus",
+    "f1": 0.7488207547169812,
+    "recall": 0.9937402190923318,
+    "precision": 0.6007568590350048,
+    "accuracy": 0.9109996866186149,
+    "coding_fraction": 0.13350047007207771,
+    "seq_len": 9573
   },
   {
     "gene": "drosophila_Adh",
     "species": "D. melanogaster",
-    "f1": 0.8386075949367088,
+    "f1": 0.5186680121089808,
     "recall": 1.0,
-    "precision": 0.7220708446866485,
-    "accuracy": 0.8173679498657117,
-    "coding_fraction": 0.4744852282900627
+    "precision": 0.35013623978201636,
+    "accuracy": 0.5729632945389436,
+    "coding_fraction": 0.23008057296329454,
+    "seq_len": 3351
+  },
+  {
+    "gene": "drosophila_eve",
+    "species": "D. melanogaster",
+    "f1": 0.9492236676458246,
+    "recall": 1.0,
+    "precision": 0.9033546325878594,
+    "accuracy": 0.9180771834800271,
+    "coding_fraction": 0.7657413676371022,
+    "seq_len": 1477
+  },
+  {
+    "gene": "drosophila_ftz",
+    "species": "D. melanogaster",
+    "f1": 0.8785179907374421,
+    "recall": 1.0,
+    "precision": 0.7833545108005082,
+    "accuracy": 0.8224882873503384,
+    "coding_fraction": 0.6418532014575742,
+    "seq_len": 1921
+  },
+  {
+    "gene": "drosophila_h",
+    "species": "D. melanogaster",
+    "f1": 0.7406866325785244,
+    "recall": 1.0,
+    "precision": 0.5881670533642691,
+    "accuracy": 0.7968526466380543,
+    "coding_fraction": 0.29012875536480687,
+    "seq_len": 3495
+  },
+  {
+    "gene": "drosophila_w",
+    "species": "D. melanogaster",
+    "f1": 0.778867924528302,
+    "recall": 1.0,
+    "precision": 0.6378244746600742,
+    "accuracy": 0.8002726653033402,
+    "coding_fraction": 0.35173824130879344,
+    "seq_len": 5868
   },
   {
     "gene": "human_BRCA1",
@@ -33,7 +156,38 @@
     "recall": 0.9941415051825147,
     "precision": 0.6203599550056242,
     "accuracy": 0.9148178238860071,
-    "coding_fraction": 0.13867883257296418
+    "coding_fraction": 0.13867883257296418,
+    "seq_len": 16001
+  },
+  {
+    "gene": "human_GAPDH",
+    "species": "H. sapiens",
+    "f1": 0.7709369024856596,
+    "recall": 1.0,
+    "precision": 0.627255756067206,
+    "accuracy": 0.8446173800259403,
+    "coding_fraction": 0.2614785992217899,
+    "seq_len": 3855
+  },
+  {
+    "gene": "human_GBA1",
+    "species": "H. sapiens",
+    "f1": 0.7024539877300612,
+    "recall": 0.9950341402855369,
+    "precision": 0.542837792075855,
+    "accuracy": 0.8665487421383647,
+    "coding_fraction": 0.15831367924528303,
+    "seq_len": 10176
+  },
+  {
+    "gene": "human_HBA1",
+    "species": "H. sapiens",
+    "f1": 0.8320312500000001,
+    "recall": 0.993006993006993,
+    "precision": 0.7159663865546219,
+    "accuracy": 0.7959667852906287,
+    "coding_fraction": 0.5088967971530249,
+    "seq_len": 843
   },
   {
     "gene": "human_HBB",
@@ -42,7 +196,38 @@
     "recall": 1.0,
     "precision": 0.5427872860635696,
     "accuracy": 0.7675574891236793,
-    "coding_fraction": 0.2759477936606588
+    "coding_fraction": 0.2759477936606588,
+    "seq_len": 1609
+  },
+  {
+    "gene": "human_INS",
+    "species": "H. sapiens",
+    "f1": 0.7278688524590163,
+    "recall": 1.0,
+    "precision": 0.5721649484536082,
+    "accuracy": 0.8259958071278826,
+    "coding_fraction": 0.23270440251572327,
+    "seq_len": 1431
+  },
+  {
+    "gene": "human_MYC",
+    "species": "H. sapiens",
+    "f1": 0.8103186646433992,
+    "recall": 0.978021978021978,
+    "precision": 0.6917098445595855,
+    "accuracy": 0.9168661878159085,
+    "coding_fraction": 0.18156424581005587,
+    "seq_len": 7518
+  },
+  {
+    "gene": "human_SOD1",
+    "species": "H. sapiens",
+    "f1": 0.5165794066317627,
+    "recall": 0.9548387096774194,
+    "precision": 0.35406698564593303,
+    "accuracy": 0.9100552007793051,
+    "coding_fraction": 0.05033012230760905,
+    "seq_len": 9239
   },
   {
     "gene": "human_TP53_part1",
@@ -51,7 +236,8 @@
     "recall": 0.9199255121042831,
     "precision": 0.5272145144076841,
     "accuracy": 0.9352043197120192,
-    "coding_fraction": 0.07159522698486767
+    "coding_fraction": 0.07159522698486767,
+    "seq_len": 15001
   },
   {
     "gene": "human_TP53_part2",
@@ -60,7 +246,78 @@
     "recall": 0.8595600676818951,
     "precision": 0.4243943191311612,
     "accuracy": 0.9477425032153253,
-    "coding_fraction": 0.0400054152846409
+    "coding_fraction": 0.0400054152846409,
+    "seq_len": 14773
+  },
+  {
+    "gene": "maize_Adh1",
+    "species": "Z. mays",
+    "f1": 0.6258578094976668,
+    "recall": 1.0,
+    "precision": 0.4554534558529764,
+    "accuracy": 0.6376927166400851,
+    "coding_fraction": 0.30303030303030304,
+    "seq_len": 3762
+  },
+  {
+    "gene": "mouse_Hbb_bt",
+    "species": "M. musculus",
+    "f1": 0.7201946472019466,
+    "recall": 1.0,
+    "precision": 0.5627376425855514,
+    "accuracy": 0.7533952823445318,
+    "coding_fraction": 0.3173695496783417,
+    "seq_len": 1399
+  },
+  {
+    "gene": "mouse_Myc",
+    "species": "M. musculus",
+    "f1": 0.8771353482260185,
+    "recall": 0.978021978021978,
+    "precision": 0.795116140559857,
+    "accuracy": 0.9255128460466042,
+    "coding_fraction": 0.27185819557857,
+    "seq_len": 5021
+  },
+  {
+    "gene": "neurospora_am",
+    "species": "N. crassa",
+    "f1": 0.8628318584070797,
+    "recall": 1.0,
+    "precision": 0.7587548638132295,
+    "accuracy": 0.8057296329453895,
+    "coding_fraction": 0.6110116383169203,
+    "seq_len": 2234
+  },
+  {
+    "gene": "rice_Wx",
+    "species": "O. sativa",
+    "f1": 0.7022375215146299,
+    "recall": 1.0,
+    "precision": 0.5411140583554377,
+    "accuracy": 0.6956606724003127,
+    "coding_fraction": 0.35887412040656763,
+    "seq_len": 5116
+  },
+  {
+    "gene": "toxoplasma_GRA1",
+    "species": "T. gondii",
+    "f1": 0.5166816952209197,
+    "recall": 1.0,
+    "precision": 0.34832826747720363,
+    "accuracy": 0.4880611270296084,
+    "coding_fraction": 0.27363896848137537,
+    "seq_len": 2094
+  },
+  {
+    "gene": "xenopus_tbxt",
+    "species": "X. tropicalis",
+    "f1": 0.6714689992281966,
+    "recall": 1.0,
+    "precision": 0.505422153369481,
+    "accuracy": 0.8214235771220808,
+    "coding_fraction": 0.18249195916655014,
+    "seq_len": 7151
   },
   {
     "gene": "yeast_ACT1",
@@ -69,6 +326,37 @@
     "recall": 1.0,
     "precision": 0.9141004862236629,
     "accuracy": 0.9262352122477383,
-    "coding_fraction": 0.7849686847599165
+    "coding_fraction": 0.7849686847599165,
+    "seq_len": 1437
+  },
+  {
+    "gene": "yeast_RPL28",
+    "species": "S. cerevisiae",
+    "f1": 0.6039156626506024,
+    "recall": 0.8911111111111111,
+    "precision": 0.45671981776765375,
+    "accuracy": 0.45265348595213317,
+    "coding_fraction": 0.46826222684703434,
+    "seq_len": 961
+  },
+  {
+    "gene": "zebrafish_myod1",
+    "species": "D. rerio",
+    "f1": 0.7988422575976845,
+    "recall": 1.0,
+    "precision": 0.6650602409638554,
+    "accuracy": 0.8110557317625736,
+    "coding_fraction": 0.3751699139102855,
+    "seq_len": 2207
+  },
+  {
+    "gene": "zebrafish_tp53",
+    "species": "D. rerio",
+    "f1": 0.4024324807726704,
+    "recall": 1.0,
+    "precision": 0.25190326914464845,
+    "accuracy": 0.7114604024527161,
+    "coding_fraction": 0.09715864927886692,
+    "seq_len": 11579
   }
 ]
