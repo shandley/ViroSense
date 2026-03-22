@@ -22,7 +22,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Rectangle
 import numpy as np
 
-OUT_DIR = Path("results/figures")
+OUT_DIR = Path("results/paper1/figures")
 
 plt.rcParams.update({
     "font.family": "sans-serif",
@@ -74,23 +74,23 @@ def get_domain(r):
 def main():
     # ── Load all data ──
     # Lac operon trajectory
-    emb = np.load("results/figures/fig1_data/ecoli_lacz_emb_blocks10.npy")
-    with open("results/figures/fig1_data/ecoli_lacz_genes.json") as f:
+    emb = np.load("results/experiments/fig1_data/ecoli_lacz_emb_blocks10.npy")
+    with open("results/experiments/fig1_data/ecoli_lacz_genes.json") as f:
         gene_data = json.load(f)
 
     # Multi-offset (expanded)
-    expanded_path = Path("results/codon_periodicity_panel/multi_offset_expanded.json")
+    expanded_path = Path("results/experiments/codon_periodicity/multi_offset_expanded.json")
     if expanded_path.exists():
         with open(expanded_path) as f:
             offset_data = json.load(f)
     else:
-        with open("results/codon_periodicity_panel/multi_offset_cosine.json") as f:
+        with open("results/experiments/codon_periodicity/multi_offset_cosine.json") as f:
             offset_data = json.load(f)
 
     # Comprehensive validation
     with open("results/comprehensive/panel.json") as f:
         panel = json.load(f)
-    emb_dir = Path("results/codon_periodicity_panel/embeddings")
+    emb_dir = Path("results/experiments/codon_periodicity/embeddings")
     results = []
     for entry in panel:
         mp = emb_dir / f"{entry['name']}_metrics.json"
@@ -98,7 +98,7 @@ def main():
             continue
         with open(mp) as f:
             metrics = json.load(f)
-        fp = Path("results/codon_periodicity_panel/fasta") / f"{entry['name']}.fasta"
+        fp = Path("results/experiments/codon_periodicity/fasta") / f"{entry['name']}.fasta"
         gc = 0
         if fp.exists():
             with open(fp) as f2:
@@ -136,12 +136,12 @@ def main():
     ax_e = fig.add_subplot(gs[2, 1])
     _draw_gc_scatter(ax_e, coding, noncoding)
 
-    plt.savefig(OUT_DIR / "fig1_v5.png", dpi=300, bbox_inches="tight",
+    plt.savefig(OUT_DIR / "fig1.png", dpi=300, bbox_inches="tight",
                 facecolor="white", edgecolor="none")
-    plt.savefig(OUT_DIR / "fig1_v5.pdf", bbox_inches="tight",
+    plt.savefig(OUT_DIR / "fig1.pdf", bbox_inches="tight",
                 facecolor="white", edgecolor="none")
     plt.close()
-    print(f"Saved to {OUT_DIR}/fig1_v5.png and .pdf")
+    print(f"Saved to {OUT_DIR}/fig1.png and .pdf")
 
 
 def _draw_schematic(ax):
