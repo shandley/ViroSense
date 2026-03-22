@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
 Paper 1, Figure 2: Gene Structure Detection Across All Life
-Exon-intron boundaries from embedding geometry
 
 Panels:
-A: Human HBB — 3 exons perfectly resolved (the star example)
-B: Cross-kingdom montage — 4 diverse species
-C: Quantification — recall by kingdom (36 genes)
-D: Precision-recall tradeoff across smoothing windows
+A: Human HBB — gene structure diagram + inversion signal (star example)
+B: Cross-kingdom montage — 3 diverse species (Drosophila, Arabidopsis, yeast)
+C: Precision vs recall per gene, colored by kingdom (36 genes)
 """
 
 import json
@@ -18,9 +16,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.patches import Rectangle, FancyBboxPatch
 import numpy as np
 
 OUT_DIR = Path("results/paper1/figures")
+DATA_DIR = Path("results/experiments/exon_intron")
 
 plt.rcParams.update({
     "font.family": "sans-serif",
@@ -39,251 +39,204 @@ EXON_COLOR = "#1565C0"
 INTRON_COLOR = "#C62828"
 GENE_BAR_COLOR = "#4CAF50"
 
+KINGDOM_COLORS = {
+    "Mammalia": "#2196F3", "Insecta": "#8BC34A", "Nematoda": "#CDDC39",
+    "Aves": "#03A9F4", "Fish": "#009688", "Amphibia": "#4CAF50",
+    "Plantae": "#FF9800", "Fungi": "#9C27B0", "Protista": "#F44336",
+}
 
-def load_gene(name):
-    """Load per-position metrics and annotations for a gene."""
-    metrics_path = Path("results/experiments/exon_intron/metrics") / f"{name}_perpos.json"
-    with open(metrics_path) as f:
-        data = json.load(f)
+KINGDOM_MAP = {
+    "H. sapiens": "Mammalia", "M. musculus": "Mammalia", "D. rerio": "Fish",
+    "G. gallus": "Aves", "X. tropicalis": "Amphibia", "D. melanogaster": "Insecta",
+    "C. elegans": "Nematoda", "A. thaliana": "Plantae", "O. sativa": "Plantae",
+    "Z. mays": "Plantae", "S. cerevisiae": "Fungi", "N. crassa": "Fungi",
+    "T. gondii": "Protista",
+}
 
-    # Load annotations
+
+def load_annotations():
+    """Load all gene annotations."""
     ann = {}
-    for ann_file in ["results/experiments/exon_intron/annotations_all.json",
-                      "results/experiments/exon_intron/annotations_fixed.json"]:
-        if Path(ann_file).exists():
+    for ann_file in [DATA_DIR / "annotations_all.json", DATA_DIR / "annotations_fixed.json"]:
+        if ann_file.exists():
             with open(ann_file) as f:
                 ann.update(json.load(f))
-
-    gene_ann = ann.get(name, {})
-    return data, gene_ann
+    return ann
 
 
-def plot_gene_profile(ax, name, title, smooth_window=100):
-    """Plot a single gene's exon-intron profile."""
-    data, ann = load_gene(name)
+def load_gene_metrics(name):
+    """Load per-position cosine data for a gene."""
+    with open(DATA_DIR / "metrics" / f"{name}_perpos.json") as f:
+        return json.load(f)
+
+
+def compute_inversion(data, window=100):
+    """Compute smoothed inversion signal."""
     cos1 = np.array(data["cos1"])
     cos3 = np.array(data["cos3"])
-    seq_len = data["length"]
-
-    kernel = np.ones(smooth_window) / smooth_window
-    cos1_s = np.convolve(cos1, kernel, mode="same")
-    cos3_s = np.convolve(cos3, kernel, mode="same")
-    inversion = cos3_s - cos1_s
-
-    x = np.arange(seq_len)
-
-    # Fill coding (blue) vs non-coding (red)
-    ax.fill_between(x, 0, inversion, where=inversion > 0,
-                     alpha=0.6, color=EXON_COLOR, linewidth=0)
-    ax.fill_between(x, 0, inversion, where=inversion <= 0,
-                     alpha=0.4, color=INTRON_COLOR, linewidth=0)
-    ax.axhline(0, color="black", linewidth=0.3)
-
-    # Mark CDS/exon annotations
-    regions = ann.get("cds", []) if ann.get("cds") else ann.get("exons", [])
-    y_bar = ax.get_ylim()[0]
-    for r in regions:
-        s = max(0, r["start"])
-        e = min(r["end"], seq_len)
-        ax.plot([s, e], [y_bar * 0.9, y_bar * 0.9], color=GENE_BAR_COLOR,
-                linewidth=3, solid_capstyle="butt", alpha=0.8)
-
-    ax.set_ylabel("cos3 - cos1", fontsize=6.5)
-    ax.set_title(title, loc="left", fontsize=7, fontstyle="italic")
-    ax.tick_params(labelsize=5.5)
-
-    return seq_len
-
-
-def main():
-    fig = plt.figure(figsize=(7.2, 8.5))
-
-    # Layout: Panel A takes top half, B is middle row (4 subplots), C-D bottom row
-    gs = gridspec.GridSpec(4, 2, figure=fig, height_ratios=[1.3, 0.9, 0.9, 1.0],
-                           hspace=0.45, wspace=0.35)
-
-    # ══════════════════════════════════════════════════════════════
-    # Panel A: Human HBB (full width, top)
-    # ══════════════════════════════════════════════════════════════
-    ax_a = fig.add_subplot(gs[0, :])
-
-    data, ann = load_gene("human_HBB")
-    cos1 = np.array(data["cos1"])
-    cos3 = np.array(data["cos3"])
-    seq_len = data["length"]
-
-    window = 100
     kernel = np.ones(window) / window
     cos1_s = np.convolve(cos1, kernel, mode="same")
     cos3_s = np.convolve(cos3, kernel, mode="same")
-    inversion = cos3_s - cos1_s
+    return cos1_s, cos3_s, cos3_s - cos1_s
 
-    x = np.arange(seq_len)
 
-    # Top trace: cos1 vs cos3
-    ax_a_top = ax_a
-    ax_a_top.plot(x, cos1_s, color=INTRON_COLOR, linewidth=0.7, alpha=0.7, label="cos(offset-1)")
-    ax_a_top.plot(x, cos3_s, color=EXON_COLOR, linewidth=0.7, alpha=0.7, label="cos(offset-3)")
+def main():
+    ann = load_annotations()
 
-    # Fill between
-    ax_a_top.fill_between(x, cos1_s, cos3_s, where=cos3_s > cos1_s,
-                           alpha=0.15, color=EXON_COLOR)
-    ax_a_top.fill_between(x, cos3_s, cos1_s, where=cos1_s > cos3_s,
-                           alpha=0.15, color=INTRON_COLOR)
+    fig = plt.figure(figsize=(7.2, 9.0))
+    gs = gridspec.GridSpec(4, 2, figure=fig, height_ratios=[0.4, 1.0, 1.0, 1.2],
+                           hspace=0.35, wspace=0.30)
 
-    # Gene annotations
-    regions = ann.get("cds", []) if ann.get("cds") else ann.get("exons", [])
-    ylim = ax_a_top.get_ylim()
-    gene_y = ylim[0] - (ylim[1] - ylim[0]) * 0.12
-    gene_h = (ylim[1] - ylim[0]) * 0.05
+    # ══════════════════════════════════════════════════════════════
+    # Panel A top: HBB gene structure diagram (schematic)
+    # ══════════════════════════════════════════════════════════════
+    ax_gene = fig.add_subplot(gs[0, :])
+    ax_gene.axis("off")
+    ax_gene.set_xlim(0, 1609)
+    ax_gene.set_ylim(-0.5, 1.5)
+    ax_gene.set_title("A   Human beta-globin (HBB): exon-intron detection from embedding geometry",
+                       loc="left", fontweight="bold", fontsize=8)
 
+    regions = ann.get("human_HBB", {}).get("cds", [])
+    if not regions:
+        regions = [{"start": 51, "end": 193}, {"start": 323, "end": 493}, {"start": 1349, "end": 1475}]
+
+    # Draw intron line
+    gene_start = regions[0]["start"]
+    gene_end = regions[-1]["end"]
+    ax_gene.plot([gene_start, gene_end], [0.5, 0.5], color="#999999", linewidth=1, zorder=1)
+
+    # Draw exons as thick boxes
     for i, r in enumerate(regions):
-        s = max(0, r["start"])
-        e = min(r["end"], seq_len)
-        from matplotlib.patches import Rectangle
-        rect = Rectangle((s, gene_y), e - s, gene_h, facecolor=GENE_BAR_COLOR,
-                          edgecolor="black", linewidth=0.3, clip_on=False, zorder=5)
-        ax_a_top.add_patch(rect)
-        mid = (s + e) / 2
-        ax_a_top.text(mid, gene_y - (ylim[1] - ylim[0]) * 0.03,
-                       f"Exon {i+1}", ha="center", va="top", fontsize=6, fontweight="bold")
+        rect = Rectangle((r["start"], 0.15), r["end"] - r["start"], 0.7,
+                          facecolor=GENE_BAR_COLOR, edgecolor="black", linewidth=0.8, zorder=3)
+        ax_gene.add_patch(rect)
+        mid = (r["start"] + r["end"]) / 2
+        ax_gene.text(mid, -0.15, f"Exon {i+1}\n({r['end']-r['start']}bp)",
+                     ha="center", va="top", fontsize=6, fontweight="bold")
 
     # Label introns
     for i in range(len(regions) - 1):
-        ig_s = regions[i]["end"]
-        ig_e = regions[i + 1]["start"]
-        mid = (ig_s + ig_e) / 2
-        ax_a_top.axvspan(ig_s, ig_e, alpha=0.06, color="#888888", zorder=0)
-        ax_a_top.text(mid, ylim[1] * 0.85, f"Intron {i+1}", ha="center",
-                       fontsize=5.5, color="#888888", fontstyle="italic")
+        mid = (regions[i]["end"] + regions[i+1]["start"]) / 2
+        size = regions[i+1]["start"] - regions[i]["end"]
+        ax_gene.text(mid, 1.1, f"Intron {i+1} ({size}bp)",
+                     ha="center", fontsize=5.5, color="#888888", fontstyle="italic")
 
-    ax_a_top.set_ylim(ylim[0] - (ylim[1] - ylim[0]) * 0.22, ylim[1])
-    ax_a_top.set_xlabel("Position in human HBB gene (bp)")
-    ax_a_top.set_ylabel("Cosine similarity (100bp smoothed)")
-    ax_a_top.set_title("A   Human beta-globin (HBB): exon-intron structure from embedding geometry",
-                        loc="left", fontweight="bold", fontsize=8)
-    ax_a_top.legend(loc="upper right", fontsize=6, framealpha=0.9)
+    # UTR labels
+    ax_gene.text(25, 0.5, "5' UTR", ha="center", fontsize=5, color="#AAAAAA")
+    ax_gene.text(1550, 0.5, "3' UTR", ha="center", fontsize=5, color="#AAAAAA")
 
     # ══════════════════════════════════════════════════════════════
-    # Panel B: Cross-kingdom montage (4 species, middle row)
+    # Panel A bottom: HBB inversion signal
     # ══════════════════════════════════════════════════════════════
-    montage_genes = [
-        ("drosophila_eve", "D. melanogaster — even-skipped (2 exons)"),
-        ("celegans_lin12", "C. elegans — lin-12/Notch (10 exons)"),
-        ("arabidopsis_AG", "A. thaliana — AGAMOUS (7 exons)"),
-        ("yeast_ACT1", "S. cerevisiae — ACT1 (1 intron)"),
+    ax_hbb = fig.add_subplot(gs[1, :])
+
+    data = load_gene_metrics("human_HBB")
+    cos1_s, cos3_s, inversion = compute_inversion(data)
+    seq_len = data["length"]
+    x = np.arange(seq_len)
+
+    ax_hbb.fill_between(x, 0, inversion, where=inversion > 0,
+                         alpha=0.7, color=EXON_COLOR, linewidth=0, label="Exon (cos3 > cos1)")
+    ax_hbb.fill_between(x, 0, inversion, where=inversion <= 0,
+                         alpha=0.5, color=INTRON_COLOR, linewidth=0, label="Intron/UTR (cos1 > cos3)")
+    ax_hbb.axhline(0, color="black", linewidth=0.3)
+
+    # Mark exon positions with subtle shading
+    for r in regions:
+        ax_hbb.axvspan(r["start"], r["end"], alpha=0.06, color=GENE_BAR_COLOR, zorder=0)
+
+    ax_hbb.set_xlabel("Position in HBB gene (bp)")
+    ax_hbb.set_ylabel("Inversion signal\n(cos3 - cos1)")
+    ax_hbb.legend(loc="upper right", fontsize=6, framealpha=0.9)
+    ax_hbb.set_xlim(0, seq_len)
+
+    # ══════════════════════════════════════════════════════════════
+    # Panel B: Cross-kingdom montage (3 species)
+    # ══════════════════════════════════════════════════════════════
+    montage = [
+        ("drosophila_eve", "D. melanogaster — even-skipped (2 exons, insect)"),
+        ("arabidopsis_AG", "A. thaliana — AGAMOUS (7 exons, plant)"),
+        ("yeast_ACT1", "S. cerevisiae — ACT1 (1 intron, fungus)"),
     ]
 
-    for i, (gene, title) in enumerate(montage_genes):
-        row = 1 + i // 2
-        col = i % 2
-        ax = fig.add_subplot(gs[row, col])
-        plot_gene_profile(ax, gene, title, smooth_window=100)
-        if i >= 2:
-            ax.set_xlabel("Position (bp)", fontsize=6.5)
+    for i, (gene, title) in enumerate(montage):
+        ax = fig.add_subplot(gs[2, 0]) if i == 0 else (
+             fig.add_subplot(gs[2, 1]) if i == 1 else
+             fig.add_subplot(gs[3, 0]))
 
-    # Add panel labels
-    fig.text(0.02, 0.62, "B", fontsize=11, fontweight="bold", va="top")
+        # Recalculate — need separate axes
+        if i > 0:
+            ax = fig.add_subplot(gs[2, 1]) if i == 1 else fig.add_subplot(gs[3, 0])
+
+        data = load_gene_metrics(gene)
+        _, _, inv = compute_inversion(data)
+        sl = data["length"]
+        xx = np.arange(sl)
+
+        ax.fill_between(xx, 0, inv, where=inv > 0, alpha=0.7, color=EXON_COLOR, linewidth=0)
+        ax.fill_between(xx, 0, inv, where=inv <= 0, alpha=0.5, color=INTRON_COLOR, linewidth=0)
+        ax.axhline(0, color="black", linewidth=0.3)
+
+        # Gene annotations
+        gene_ann = ann.get(gene, {})
+        gene_regions = gene_ann.get("cds", []) if gene_ann.get("cds") else gene_ann.get("exons", [])
+        for r in gene_regions:
+            s = max(0, r["start"])
+            e = min(r["end"], sl)
+            ax.axvspan(s, e, alpha=0.06, color=GENE_BAR_COLOR, zorder=0)
+
+        ax.set_ylabel("cos3 - cos1", fontsize=6)
+        ax.set_xlabel("Position (bp)", fontsize=6)
+        ax.set_title(title, loc="left", fontsize=6.5, fontstyle="italic")
+        ax.tick_params(labelsize=5.5)
+        ax.set_xlim(0, sl)
+
+    # Panel B label
+    fig.text(0.02, 0.48, "B", fontsize=11, fontweight="bold", va="top")
 
     # ══════════════════════════════════════════════════════════════
-    # Panel C: Recall by kingdom (bar chart)
+    # Panel C: Precision vs Recall scatter (36 genes)
     # ══════════════════════════════════════════════════════════════
-    ax_c = fig.add_subplot(gs[3, 0])
+    ax_c = fig.add_subplot(gs[3, 1])
 
-    with open("results/experiments/exon_intron/quantification_all.json") as f:
+    with open(DATA_DIR / "quantification_all.json") as f:
         quant = json.load(f)
 
-    kingdom_map = {
-        "H. sapiens": "Mammalia", "M. musculus": "Mammalia", "D. rerio": "Fish",
-        "G. gallus": "Aves", "X. tropicalis": "Amphibia", "D. melanogaster": "Insecta",
-        "C. elegans": "Nematoda", "A. thaliana": "Plantae", "O. sativa": "Plantae",
-        "Z. mays": "Plantae", "S. cerevisiae": "Fungi", "N. crassa": "Fungi",
-        "T. gondii": "Protista"
-    }
-
-    by_kingdom = defaultdict(list)
     for r in quant:
-        k = kingdom_map.get(r["species"], "Other")
-        by_kingdom[k].append(r)
+        kingdom = KINGDOM_MAP.get(r["species"], "Other")
+        color = KINGDOM_COLORS.get(kingdom, "#666666")
+        ax_c.scatter(r["recall"] * 100, r["precision"] * 100,
+                     c=color, s=25, alpha=0.7, edgecolors="black", linewidth=0.3, zorder=3)
 
-    kingdoms = ["Mammalia", "Insecta", "Nematoda", "Aves", "Fish", "Amphibia",
-                "Plantae", "Fungi", "Protista"]
-    kingdoms = [k for k in kingdoms if k in by_kingdom]
-
-    recalls = [np.mean([r["recall"] for r in by_kingdom[k]]) for k in kingdoms]
-    f1s = [np.mean([r["f1"] for r in by_kingdom[k]]) for k in kingdoms]
-    ns = [len(by_kingdom[k]) for k in kingdoms]
-
-    colors = ["#2196F3", "#8BC34A", "#CDDC39", "#03A9F4", "#009688",
-              "#4CAF50", "#4CAF50", "#9C27B0", "#F44336"]
-
-    x_pos = np.arange(len(kingdoms))
-    bars = ax_c.bar(x_pos, [r * 100 for r in recalls], color=colors[:len(kingdoms)],
-                     alpha=0.7, edgecolor="black", linewidth=0.3, width=0.6)
-
-    ax_c.set_xticks(x_pos)
-    ax_c.set_xticklabels(kingdoms, rotation=45, ha="right", fontsize=5.5)
-    ax_c.set_ylabel("Exon recall (%)")
-    ax_c.set_ylim(80, 102)
-    ax_c.set_title("C   Recall by kingdom (36 genes, 13 species)",
+    ax_c.set_xlabel("Recall (%)")
+    ax_c.set_ylabel("Precision (%)")
+    ax_c.set_title("C   Precision vs recall (36 genes, 13 species)",
                     loc="left", fontweight="bold", fontsize=8)
+    ax_c.set_xlim(82, 102)
+    ax_c.set_ylim(20, 100)
 
-    # N labels
-    for i, (bar, n) in enumerate(zip(bars, ns)):
-        ax_c.text(bar.get_x() + bar.get_width() / 2, 81, f"N={n}",
-                  ha="center", fontsize=5, color="#666")
+    # Mean lines
+    mean_rec = np.mean([r["recall"] for r in quant]) * 100
+    mean_prec = np.mean([r["precision"] for r in quant]) * 100
+    ax_c.axvline(mean_rec, color="#333", linewidth=0.5, linestyle="--", alpha=0.4)
+    ax_c.axhline(mean_prec, color="#333", linewidth=0.5, linestyle="--", alpha=0.4)
+    ax_c.text(83, mean_prec + 1, f"mean prec: {mean_prec:.0f}%", fontsize=5, color="#666")
+    ax_c.text(mean_rec + 0.3, 22, f"mean rec:\n{mean_rec:.0f}%", fontsize=5, color="#666")
 
-    # Mean line
-    mean_recall = np.mean(recalls) * 100
-    ax_c.axhline(mean_recall, color="black", linewidth=0.5, linestyle="--", alpha=0.5)
-    ax_c.text(len(kingdoms) - 0.5, mean_recall + 0.3, f"mean: {mean_recall:.1f}%",
-              ha="right", fontsize=6, color="#333")
-
-    # ══════════════════════════════════════════════════════════════
-    # Panel D: Summary statistics
-    # ══════════════════════════════════════════════════════════════
-    ax_d = fig.add_subplot(gs[3, 1])
-    ax_d.axis("off")
-    ax_d.set_title("D   Summary", loc="left", fontweight="bold", fontsize=8)
-
-    from matplotlib.patches import FancyBboxPatch
-    rect = FancyBboxPatch((0.01, 0.02), 0.98, 0.92, transform=ax_d.transAxes,
-                           boxstyle="round,pad=0.02", facecolor="#FAFAFA",
-                           edgecolor="#BDBDBD", linewidth=0.5, zorder=0)
-    ax_d.add_patch(rect)
-
-    mean_f1 = np.mean(f1s)
-    mean_prec = np.mean([r["precision"] for r in quant])
-    mean_rec = np.mean([r["recall"] for r in quant])
-
-    lines = [
-        ("EXON DETECTION (36 genes)", "black", True),
-        (f"Mean recall: {mean_rec:.1%}", EXON_COLOR, False),
-        (f"Mean precision: {mean_prec:.1%}", "#666", False),
-        (f"Mean F1: {mean_f1:.3f}", "#666", False),
-        ("Recall > 90%: 33/36 (92%)", EXON_COLOR, False),
-        ("", "", False),
-        ("SCOPE", "black", True),
-        ("13 species, 9 kingdoms", "#444", False),
-        ("Genes: 2 to 14 exons", "#444", False),
-        ("Smoothing: 100bp (optimal)", "#444", False),
-        ("", "", False),
-        ("NO TRAINING REQUIRED", "black", True),
-        ("No splice site model", "#444", False),
-        ("No RNA-seq data", "#444", False),
-        ("No reference genome", "#444", False),
-    ]
-
-    y = 0.88
-    for text, color, is_header in lines:
-        if not text:
-            y -= 0.02
-            continue
-        size = 7 if is_header else 6.5
-        weight = "bold" if is_header else "normal"
-        ax_d.text(0.06, y, text, fontsize=size, fontweight=weight, color=color,
-                  transform=ax_d.transAxes, va="top")
-        y -= 0.058
+    # Kingdom legend
+    from matplotlib.lines import Line2D
+    legend_elements = []
+    kingdoms_present = set()
+    for r in quant:
+        k = KINGDOM_MAP.get(r["species"], "Other")
+        if k not in kingdoms_present:
+            kingdoms_present.add(k)
+            legend_elements.append(Line2D([0], [0], marker='o', color='w',
+                                          markerfacecolor=KINGDOM_COLORS.get(k, "#666"),
+                                          markersize=5, label=k))
+    ax_c.legend(handles=legend_elements, loc="lower left", fontsize=5, ncol=2,
+                framealpha=0.9, handletextpad=0.3, columnspacing=0.5)
 
     plt.savefig(OUT_DIR / "fig2.png", dpi=300, bbox_inches="tight", facecolor="white")
     plt.savefig(OUT_DIR / "fig2.pdf", bbox_inches="tight", facecolor="white")
