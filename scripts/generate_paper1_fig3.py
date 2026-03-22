@@ -17,7 +17,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.patches import FancyBboxPatch
 import numpy as np
 
 OUT_DIR = Path("results/paper1/figures")
@@ -231,57 +230,46 @@ def main():
               bbox=dict(boxstyle="round,pad=0.3", facecolor="#FFF3E0", edgecolor="#FFB74D", alpha=0.9))
 
     # ══════════════════════════════════════════════════════════════
-    # Panel D: What the model learned (syntax) vs didn't (semantics)
+    # Panel D: PCA of 64 codon embeddings — no AA clustering visible
     # ══════════════════════════════════════════════════════════════
     ax_d = fig.add_subplot(gs[1, 1])
-    ax_d.axis("off")
-    ax_d.set_title("D   DNA syntax vs protein semantics",
+
+    from sklearn.decomposition import PCA
+
+    # PCA on sense codons
+    sense_labels = [CODON_TABLE[c] for c in codons if CODON_TABLE[c] != "Stop"]
+    sense_props = [AA_PROPS.get(CODON_TABLE[c], "special") for c in codons if CODON_TABLE[c] != "Stop"]
+    sense_embs = emb_norm[[i for i, c in enumerate(codons) if CODON_TABLE[c] != "Stop"]]
+    stop_embs = emb_norm[[i for i, c in enumerate(codons) if CODON_TABLE[c] == "Stop"]]
+
+    pca = PCA(n_components=2)
+    sense_pca = pca.fit_transform(sense_embs)
+    stop_pca = pca.transform(stop_embs)
+
+    # Plot sense codons colored by AA property
+    for i, (x_val, y_val) in enumerate(sense_pca):
+        prop = sense_props[i]
+        color = PROP_COLORS.get(prop, "#666")
+        ax_d.scatter(x_val, y_val, c=color, s=20, alpha=0.7,
+                     edgecolors="black", linewidth=0.3, zorder=3)
+
+    # Plot stop codons
+    ax_d.scatter(stop_pca[:, 0], stop_pca[:, 1], c="black", s=40, marker="X",
+                 linewidth=0.5, zorder=5, label="Stop codons")
+
+    ax_d.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.0%} var)")
+    ax_d.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.0%} var)")
+    ax_d.set_title("D   Codon embeddings: no AA property clustering",
                     loc="left", fontweight="bold", fontsize=8)
 
-    rect = FancyBboxPatch((0.01, 0.02), 0.98, 0.92, transform=ax_d.transAxes,
-                           boxstyle="round,pad=0.02", facecolor="#FAFAFA",
-                           edgecolor="#BDBDBD", linewidth=0.5, zorder=0)
-    ax_d.add_patch(rect)
-
-    learned = [
-        ("LEARNED FROM DNA", "#1565C0", True),
-        ("Triplet codon structure (98.5%)", "#1565C0", False),
-        ("Exon-intron boundaries (98% recall)", "#1565C0", False),
-        ("Stop codon identity (1.55x)", "#1565C0", False),
-        ("Gene boundaries in genomes", "#1565C0", False),
-        ("GC-independent, code-independent", "#1565C0", False),
-    ]
-
-    not_learned = [
-        ("NOT LEARNED", "#C62828", True),
-        ("Codon-to-amino-acid mapping", "#C62828", False),
-        ("Amino acid properties", "#C62828", False),
-        ("Protein identity from DNA", "#C62828", False),
-        ("Wobble position specificity", "#C62828", False),
-    ]
-
-    y = 0.88
-    for text, color, is_header in learned:
-        weight = "bold" if is_header else "normal"
-        size = 7 if is_header else 6.5
-        marker = "" if is_header else "  + "
-        ax_d.text(0.05, y, f"{marker}{text}", fontsize=size, fontweight=weight,
-                  color=color, transform=ax_d.transAxes, va="top")
-        y -= 0.065
-
-    y -= 0.03
-    for text, color, is_header in not_learned:
-        weight = "bold" if is_header else "normal"
-        size = 7 if is_header else 6.5
-        marker = "" if is_header else "  - "
-        ax_d.text(0.05, y, f"{marker}{text}", fontsize=size, fontweight=weight,
-                  color=color, transform=ax_d.transAxes, va="top")
-        y -= 0.065
-
-    y -= 0.03
-    ax_d.text(0.05, y, "The model learned the syntax of\nthe genetic code from DNA alone,\nbut not the semantics that require\nprotein-level selection.",
-              fontsize=6, color="#555", transform=ax_d.transAxes, va="top",
-              fontstyle="italic", linespacing=1.4)
+    # Property legend
+    from matplotlib.lines import Line2D
+    legend_els = [Line2D([0], [0], marker='o', color='w', markerfacecolor=PROP_COLORS[p],
+                         markersize=5, label=p) for p in ['hydrophobic', 'aromatic', 'polar', 'positive', 'negative']]
+    legend_els.append(Line2D([0], [0], marker='X', color='w', markerfacecolor='black',
+                             markersize=6, label='Stop'))
+    ax_d.legend(handles=legend_els, loc="upper right", fontsize=4.5, ncol=2,
+                framealpha=0.9, handletextpad=0.2, columnspacing=0.5)
 
     plt.savefig(OUT_DIR / "fig3.png", dpi=300, bbox_inches="tight", facecolor="white")
     plt.savefig(OUT_DIR / "fig3.pdf", bbox_inches="tight", facecolor="white")
