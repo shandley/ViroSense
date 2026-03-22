@@ -284,7 +284,15 @@ Last updated: 2026-03-20
 - But NOT the SEMANTICS: which amino acid a codon encodes, or amino acid biochemical properties
 - This is consistent with training on DNA only — the model learns DNA patterns, not protein biology
 
-**Status**: CONFIRMED. Worth discussing in paper — "the model learned triplet structure and stop codon identity from DNA alone, but the codon-to-amino-acid mapping, which requires protein-level selection pressure, is not captured in the DNA representation."
+**Embedding Atlas UMAP exploration (2026-03-22)**:
+- amino_acid coloring: no clustering — colors completely interleaved
+- is_stop coloring: stop codons (3 points) clearly separated from sense codons
+- property coloring: no biochemical property clustering (hydrophobic/polar/charged interleaved)
+- first_base coloring: partial clustering — first nucleotide drives some spatial organization
+- **gc_content: STRONG gradient** — the dominant organizing axis. 0% GC codons cluster together, 100% GC cluster together. Composition, not biology, drives the embedding space.
+- Stop codon separation is likely composition-driven (TAA/TAG/TGA are AT-rich) not function-driven
+
+**Status**: CONFIRMED. The codon embedding space is organized by nucleotide composition, not amino acid identity.
 
 ## Finding 17: Exon-Intron Boundary Detection Across Eukaryotes (MAJOR)
 
@@ -347,6 +355,31 @@ Last updated: 2026-03-20
 - Works across: Mammalia, Insecta, Nematoda, Aves, Fish, Amphibia, Plantae, Fungi, Protista
 
 **Status**: CONFIRMED at scale. Major paper finding. Fills Arc Institute Issue #72.
+
+## Finding 18: Embedding Atlas Interactive Exploration (3 Datasets)
+
+**What**: Systematic UMAP exploration of three embedding datasets using Apple's Embedding Atlas.
+
+**64 codons (40B blocks.10)**:
+- GC content is the dominant organizing axis in codon embedding space
+- Stop codons separate, but likely driven by AT-rich composition (TAA/TAG/TGA) not function
+- Amino acid identity: no clustering. Property groups: no clustering.
+- First nucleotide shows partial structure (compositional)
+
+**287 gene families (40B blocks.10)**:
+- Gene families completely interleaved — confirms negative functional clustering result
+- Species shows some spatial organization — composition (species-level GC/codon usage) drives structure
+- Outlier clusters correspond to compositionally extreme species (Plasmodium = AT-rich)
+
+**13,417 benchmark (40B blocks.28.mlp.l3)**:
+- **Category separation is clear**: RNA viruses form isolated island, phage dominates central cloud, plasmid/chromosome overlap
+- The RNA virus island explains why dark matter detection works (95.2%)
+- Plasmid/chromosome overlap explains lower plasmid specificity (81.5%)
+- Sequence length does NOT drive structure — all length bins interleaved
+
+**Significance**: The 13,417-sequence UMAP colored by category is publication-worthy for Paper 2. The codon and gene family explorations reinforce Paper 1's negative results about amino acid encoding.
+
+**Status**: DOCUMENTED. Screenshots saved. Benchmark visualization → Paper 2 supplementary or main figure.
 
 ---
 
