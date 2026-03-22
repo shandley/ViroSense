@@ -307,7 +307,31 @@ Last updated: 2026-03-20
 - Same signal (offset-3 inversion) that detects prokaryotic coding regions also detects eukaryotic exon structure
 - This transforms the finding from "codon periodicity in prokaryotes" to "universal gene structure detection across all life"
 
-**Status**: CONFIRMED. Should be a main figure panel or prominent supplementary. The HBB result is publication-quality.
+**Quantified accuracy** (per-position, 50bp smoothing, inversion > 0 = coding):
+
+| Gene | Species | Accuracy | Precision | Recall | F1 | Coding% | Exon regions |
+|------|---------|----------|-----------|--------|-----|---------|-------------|
+| HBB | Human | 76.1% | 53.6% | **100%** | 0.698 | 27.6% | 3 |
+| TP53 (part 1) | Human | 89.6% | 40.3% | 92.5% | 0.561 | 7.2% | 57 (CDS parts) |
+| TP53 (part 2) | Human | 91.0% | 28.9% | 85.3% | 0.432 | 4.0% | 36 (CDS parts) |
+| BRCA1 | Human | 89.7% | 57.4% | **98.9%** | 0.726 | 13.9% | 51 (CDS parts) |
+| unc-54 | C. elegans | **90.1%** | 63.0% | **96.4%** | **0.762** | 16.4% | 7 |
+| AGAMOUS | Arabidopsis | 76.1% | 49.5% | **94.8%** | 0.650 | 23.4% | 10 |
+
+**Key observations**:
+- **Recall is very high** (85-100%) — the inversion detects almost all coding regions
+- **Precision is lower** (29-63%) — some intronic regions are falsely called as coding (the smoothing window bleeds signal across boundaries)
+- **Accuracy scales with gene density** — genes with more intron (lower coding %) have higher accuracy because there's more intron to correctly call
+- Drosophila Adh had 0% coding annotation (annotation didn't map to this genomic region)
+- Yeast ACT1 had 100% coding (entire region is CDS, no contrast to measure)
+
+**Caveats**:
+- Precision is limited by the 50bp smoothing window — boundaries are blurred by ~25bp on each side
+- Annotation quality varies — CDS parts from GenBank may not perfectly match the extraction coordinates
+- Small exons (<100bp) may be masked by smoothing
+- N=6 quantified genes — should expand to 20-30 for robust claims
+
+**Status**: CONFIRMED. Should be a main figure panel. The HBB result is publication-quality. Quantification shows high recall (the signal IS there) with precision limited by smoothing (boundary resolution ~50bp).
 
 ---
 

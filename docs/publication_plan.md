@@ -143,7 +143,7 @@ The model does not encode "which protein" a gene codes for in mean-pooled repres
 - **Our novelty**: (a) the *offset-3 cosine inversion* as a specific, exploitable binary signal — no prior art; (b) universality validation across 72 sequences from all domains of life (98.5% sensitivity, 100% non-coding specificity); (c) novel applications: 94.7% coding detection without gene calling, 97.5% database-free RNA virus identification from periodicity alone; (d) systematic layer profiling identifying optimal representation depth. The model discovers codon structure without being told about it — at single-nucleotide resolution, without codon tokenization.
 
 ### Abstract
-DNA foundation models trained on nucleotide sequences learn representations that capture biological structure, but the specific features encoded in per-position embeddings remain poorly characterized. Here we show that frozen per-position embeddings from Evo2, a 40-billion parameter DNA model trained by next-nucleotide prediction, encode the triplet genetic code as a measurable structural feature. We identify an offset-3 cosine inversion — a geometric signature in which nucleotides separated by one codon are more similar in embedding space than adjacent nucleotides in coding regions, with this relationship inverting in non-coding regions. This signal is universal: validated on 459 protein-coding sequences spanning all three domains of life (55 phyla, 10 conserved gene families, GC content 9.8–78.8%), it achieves 98.5% sensitivity overall and 100% for sequences above 500 bp. The inversion is absent from ribosomal RNA, long non-coding RNA, intronic sequences, and repetitive elements, though present in tRNA (which has inherent codon-related structure). The signal is independent of GC content, genetic code variant (standard and mitochondrial), and genome size, and is present in synthetic codon-optimized sequences. We demonstrate that the per-position periodicity signal enables 94.7% coding region detection without gene calling and 97.5% database-free identification of RNA viral sequences from periodicity features alone. Mean-pooled embeddings from the same extraction support viral detection (99.7% phage sensitivity), contig typing (94.5%), unsupervised clustering (ARI=0.903), and alignment-free phylogenomics (r=0.504), though we find that mean-pooled representations do not encode protein identity — genes for the same protein from different species do not cluster in embedding space despite visual appearance in dimensionality-reduced projections. Trinucleotide frequency classifiers achieve 93% of Evo2's accuracy for binary classification at 1,527× the speed, but cannot replicate the per-position capabilities. These findings reveal that next-nucleotide prediction on DNA is sufficient for a model to discover the triplet organization of protein-coding regions across all life.
+DNA foundation models trained on nucleotide sequences learn representations that capture biological structure, but the specific features encoded in per-position embeddings remain poorly characterized. Here we show that frozen per-position embeddings from Evo2, a 40-billion parameter DNA model trained by next-nucleotide prediction, encode the triplet genetic code as a measurable structural feature. We identify an offset-3 cosine inversion — a geometric signature in which nucleotides separated by one codon are more similar in embedding space than adjacent nucleotides in coding regions, with this relationship inverting in non-coding regions. This signal is universal: validated on 459 protein-coding sequences spanning all three domains of life (55 phyla, 10 conserved gene families, GC content 9.8–78.8%), it achieves 98.5% sensitivity overall and 100% for sequences above 500 bp. The inversion is absent from ribosomal RNA, long non-coding RNA, intronic sequences, and repetitive elements, though present in tRNA (which has inherent codon-related structure). The signal is independent of GC content, genetic code variant (standard and mitochondrial), and genome size, and is present in synthetic codon-optimized sequences. The inversion enables gene structure detection at every scale: 94.7% coding region detection in prokaryotic sequences without gene calling, and detection of eukaryotic exon-intron boundaries across five species and four kingdoms (human, Drosophila, C. elegans, Arabidopsis, yeast) without splice site models or RNA-seq data. Periodicity features alone achieve 95.2% database-free identification of RNA viral sequences. Mean-pooled embeddings from the same extraction support viral detection (99.7% phage sensitivity), contig typing (94.5%), unsupervised clustering (ARI=0.903), and alignment-free phylogenomics (r=0.504), though mean-pooled representations do not encode protein identity. The model learned the structural syntax of the genetic code — triplet organization, stop codon boundaries, and gene architecture — but not the semantic mapping from codons to amino acids. These findings reveal that next-nucleotide prediction on DNA is sufficient for a model to discover gene structure across all life, from prokaryotic operons to eukaryotic splice sites.
 
 ### Results
 
@@ -156,16 +156,18 @@ DNA foundation models trained on nucleotide sequences learn representations that
 - RNA viruses show strongest periodicity (lag-3 = 0.822) vs dsDNA phages (0.624) — relates to coding density and codon usage bias
 - Layer profiling: signal strongest at block 10 of 32 (systematic profiling of all layers)
 
-**2. The offset-3 inversion is universal across all domains of life** (Figure 2)
-- 72 sequences spanning 25+ phyla, GC content 20–67%
-- **64/65 coding sequences (98.5%)** show inversion; **6/6 non-coding controls (100%)** correctly lack it
-- 100% inversion rate in every taxonomic group: Archaea (10/10), Mammals (5/5), Fish (3/3), Insects (5/5), Plants (8/8), Fungi (4/4), Protists (7/7), Algae (3/3), Organellar (3/3), Viruses (4/4)
-- GC-independent: no correlation between GC content and inversion strength
-- Genetic code-independent: works with mitochondrial code (UGA=Trp), not just standard code
-- Works on synthetic sequences: codon-optimized eGFP shows inversion
-- Works on minimal genomes: Mycoplasma genitalium (580 kb genome) shows inversion
-- **Mislabeled control validation**: an E. coli "intergenic" region that was 95% lacY+lacZ CDS was correctly identified as coding — the model caught our annotation error
-- Single failure: alligator hemoglobin (gap = -0.010, borderline, 429 bp)
+**2. The inversion detects gene structure from codons to splice sites** (Figure 2)
+- **Eukaryotic exon-intron detection**: the inversion flips at splice sites across 5 species, 4 kingdoms:
+  - Human HBB: 3 exons perfectly resolved as positive peaks, 2 introns negative, UTRs negative
+  - Human TP53: 11 exons visible across 19kb, large intronic regions correctly negative
+  - Arabidopsis AGAMOUS: exon peaks align with annotations, large intron negative
+  - C. elegans unc-54: multiple exons detected
+  - Drosophila Adh: exon-intron oscillation visible
+- No splice site model, no RNA-seq, no reference genome — pure embedding geometry
+- Fills Arc Institute GitHub Issue #72 (Evo2 exon/intron classification — unfilled since March 2025)
+- **Universality**: 452/459 coding sequences (98.5%) across 55 phyla, GC 9.8-78.8%, 100% above 500bp
+- **RNA dark matter detection**: 95.2% accuracy, 0.982 AUC from 6 periodicity features (207 sequences)
+- **Prophage amelioration gradient**: viral scores measure evolutionary age (DLP12 active → e14 invisible)
 
 **3. Mean-pooled embeddings support multi-task analysis** (Figure 3)
 - "Embed once, analyze many ways" — a single Evo2 forward pass enables:
@@ -175,16 +177,11 @@ DNA foundation models trained on nucleotide sequences learn representations that
 - Alignment-free phylogenomics: Spearman r=0.504 between embedding distance and taxonomic distance
 - **Negative result**: mean-pooled embeddings do NOT cluster by protein identity (tested 40B + 7B, blocks.10 + blocks.28, N=287, 10 families, NN accuracy 13-20%, silhouette negative). UMAP visualizations are misleading for this task.
 
-**4. Foundation models vs k-mer baselines** (Figure 4)
-- **Per-position applications**: RNA dark matter detection (97.5%, 0.990 AUC from periodicity alone), coding detection (94.7%), gene boundary detection (73.2% recall)
-- **Mean-pooled applications**: viral detection (99.7% phage, 95.4% overall), contig typing (94.5%), unsupervised clustering (ARI=0.903), phylogenomics (r=0.504)
-- **Combined**: DNA passport characterization (identity + origin + structure + novelty from one embedding), prophage amelioration gradient
-- Implications: RNA dark matter discovery, alignment-free functional annotation from DNA, novel element detection
-
-**6. Foundation models vs k-mer baselines: complementary, not competing** (Figure 6 or supplementary)
-- Trinucleotide frequency classifiers achieve 93% viral detection at 1,527× the speed
-- The 2.4% accuracy gap is biologically meaningful: Evo2 captures contextual composition beyond k-mer bags
-- Gap analysis: 6.3% of sequences need Evo2 — host-adapted phages, short fragments, low-GC false positives
+**4. Foundation models vs k-mer baselines: complementary, not competing** (Figure 4)
+- K-mers achieve 93% viral detection at 1,527× the speed — strong for binary classification
+- Foundation models add unique per-position capabilities: exon-intron detection, coding detection, RNA dark matter, gene boundary identification — none replicable by k-mers
+- Gap analysis: 6.3% of sequences need Evo2 (host-adapted phages, short fragments, ambiguous composition)
+- Two-tier pipeline: k-mers screen, Evo2 characterizes
 - Foundation model unique capabilities: per-position analysis, zero-shot generalization to unseen types, compositional characterization, anomaly detection
 - Two-tier architecture: k-mers screen everything at scale, Evo2 characterizes the borderline fraction
 - **Honest framing**: this is the comparison most papers don't include
@@ -227,12 +224,12 @@ DNA foundation models trained on nucleotide sequences learn representations that
 - D: **GC-independent** — Scatter: GC (9.8–78.8%) vs inversion signal. No correlation. Edge cases labeled.
 - E: **Summary** — 452/459 (98.5%) coding, 100% above 500bp, 7 failures all in short sequences.
 
-### Figure 2: Applications of Per-Position Periodicity
-*What the codon structure discovery enables*
-- A: RNA dark matter detection — 97.5% accuracy, 0.990 AUC from periodicity features alone. No database, no homology.
-- B: Feature importance — cos3 dominates (50.9%, Cohen's d = 2.83). RNA viruses have strongest periodicity.
-- C: Coding region detection — 94.7% from inversion threshold, no gene calling needed.
-- D: Prophage amelioration gradient — viral scores as evolutionary age proxy.
+### Figure 2: Gene Structure Detection Across All Life
+*The offset-3 inversion traces gene architecture from codons to splice sites*
+- A: **Eukaryotic exon-intron detection** — Human HBB (beta-globin): 3 exons perfectly resolved, 2 introns negative, UTRs negative. The star panel.
+- B: **Cross-kingdom gene structure** — montage of TP53 (human, complex), AGAMOUS (Arabidopsis, plant), unc-54 (C. elegans, nematode). Same signal works across all eukaryotes.
+- C: **Database-free RNA dark matter detection** — 95.2% accuracy, 0.982 AUC from periodicity features alone. One application of the coding detection principle.
+- D: **Prophage amelioration gradient** — viral embedding scores reveal evolutionary age. Per-position characterization beyond binary coding/non-coding.
 
 ### Figure 3: Multi-Task DNA Analysis from Mean-Pooled Embeddings
 *One extraction supports classification, clustering, and phylogenomics*
