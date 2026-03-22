@@ -325,11 +325,18 @@ Last updated: 2026-03-20
 - Drosophila Adh had 0% coding annotation (annotation didn't map to this genomic region)
 - Yeast ACT1 had 100% coding (entire region is CDS, no contrast to measure)
 
+**Smoothing optimization** (tested 10, 25, 50, 75, 100, 150, 200, 300bp):
+- Overall best: **100bp** (mean F1 = 0.689 across 6 genes)
+- Sweet spot: 75-150bp range
+- Recall consistently 86-100% across all windows — signal is robust
+- Precision is the bottleneck (boundary blurring)
+- Short-exon genes prefer 50-75bp; long-intron genes prefer 150bp
+
 **Caveats**:
-- Precision is limited by the 50bp smoothing window — boundaries are blurred by ~25bp on each side
-- Annotation quality varies — CDS parts from GenBank may not perfectly match the extraction coordinates
+- Precision limited by smoothing — boundaries blurred by ~50bp on each side at optimal window
+- Annotation quality varies — CDS parts from GenBank may not perfectly match extraction coordinates
 - Small exons (<100bp) may be masked by smoothing
-- N=6 quantified genes — should expand to 20-30 for robust claims
+- N=6 quantified genes — expanding to 20-30 (in progress)
 
 **Status**: CONFIRMED. Should be a main figure panel. The HBB result is publication-quality. Quantification shows high recall (the signal IS there) with precision limited by smoothing (boundary resolution ~50bp).
 

@@ -75,11 +75,11 @@ GENES = [
     {
         "name": "drosophila_Adh",
         "accession": "NT_033779.5",
-        "start": 15680652,
-        "end": 15684700,
+        "start": 14615552,
+        "end": 14618902,
         "species": "Drosophila melanogaster",
         "gene": "Adh (alcohol dehydrogenase)",
-        "note": "3 exons, 2 introns, ~4kb.",
+        "note": "3 exons, 2 introns, 3.4kb. Gene ID 3771877, Adh-RE isoform.",
     },
     {
         "name": "celegans_unc54",
@@ -101,12 +101,12 @@ GENES = [
     },
     {
         "name": "yeast_ACT1",
-        "accession": "NC_001136.10",
-        "start": 54695,
-        "end": 56115,
+        "accession": "NC_001138.5",
+        "start": 53260,
+        "end": 54696,
         "species": "Saccharomyces cerevisiae",
         "gene": "ACT1 (actin, single intron)",
-        "note": "1 intron — yeast has very few introns.",
+        "note": "1 intron (309bp), complement strand, chr VI. Gene ID 850504.",
     },
 ]
 
@@ -237,7 +237,7 @@ async def extract_embeddings(sequences: dict, nim_url: str | None = None):
             cos1_all, cos3_all = await _extract_single(seq, url, layer, api_key, nim_url)
             print("OK")
 
-        if cos1_all is not None:
+        if cos1_all is not None and cos3_all is not None:
             # Save per-position cosine values
             result = {
                 "cos1": cos1_all.tolist(),
@@ -246,10 +246,12 @@ async def extract_embeddings(sequences: dict, nim_url: str | None = None):
             }
             with open(metrics_path, "w") as f:
                 json.dump(result, f)
+        else:
+            print(f"  {name}: extraction failed, skipping")
 
 
 async def _extract_single(seq, url, layer, api_key, nim_url):
-    """Extract per-position embeddings for a single sequence."""
+    """Extract per-position embeddings for a single sequence with retries."""
     import httpx
 
     headers = {"Content-Type": "application/json"}
@@ -259,18 +261,31 @@ async def _extract_single(seq, url, layer, api_key, nim_url):
     payload = {"sequence": seq, "output_layers": [layer]}
 
     async with httpx.AsyncClient() as client:
-        resp = await client.post(url, json=payload, headers=headers, timeout=300, follow_redirects=True)
-        resp.raise_for_status()
-        data = resp.json()
+        for attempt in range(5):
+            try:
+                resp = await client.post(url, json=payload, headers=headers, timeout=600, follow_redirects=True)
+                if resp.status_code == 429:
+                    import asyncio
+                    await asyncio.sleep(2 ** attempt * 10)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
 
-        raw = base64.b64decode(data["data"])
-        npz = np.load(io.BytesIO(raw))
-        emb = npz[f"{layer}.output"]
-        if emb.ndim == 3:
-            if emb.shape[0] == 1: emb = emb.squeeze(0)
-            elif emb.shape[1] == 1: emb = emb.squeeze(1)
+                raw = base64.b64decode(data["data"])
+                npz_data = np.load(io.BytesIO(raw))
+                emb = npz_data[f"{layer}.output"]
+                if emb.ndim == 3:
+                    if emb.shape[0] == 1: emb = emb.squeeze(0)
+                    elif emb.shape[1] == 1: emb = emb.squeeze(1)
 
-        return _compute_cosines(emb)
+                return _compute_cosines(emb)
+            except Exception as e:
+                if attempt < 4:
+                    import asyncio
+                    await asyncio.sleep(2 ** attempt * 5)
+                    continue
+                print(f"FAILED after 5 attempts: {e}")
+                return None, None
 
 
 async def _extract_windowed(seq, url, layer, api_key, nim_url, name):

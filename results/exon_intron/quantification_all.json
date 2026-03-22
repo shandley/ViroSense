@@ -1,0 +1,74 @@
+[
+  {
+    "gene": "arabidopsis_AG",
+    "species": "A. thaliana",
+    "f1": 0.6749017405951712,
+    "recall": 0.9670152855993563,
+    "precision": 0.5183268650280293,
+    "accuracy": 0.7815918521312712,
+    "coding_fraction": 0.23443983402489627
+  },
+  {
+    "gene": "celegans_unc54",
+    "species": "C. elegans",
+    "f1": 0.7542372881355932,
+    "recall": 0.9551219512195122,
+    "precision": 0.6231699554423934,
+    "accuracy": 0.8976580044914982,
+    "coding_fraction": 0.16442091754892524
+  },
+  {
+    "gene": "drosophila_Adh",
+    "species": "D. melanogaster",
+    "f1": 0.8386075949367088,
+    "recall": 1.0,
+    "precision": 0.7220708446866485,
+    "accuracy": 0.8173679498657117,
+    "coding_fraction": 0.4744852282900627
+  },
+  {
+    "gene": "human_BRCA1",
+    "species": "H. sapiens",
+    "f1": 0.7639826839826839,
+    "recall": 0.9941415051825147,
+    "precision": 0.6203599550056242,
+    "accuracy": 0.9148178238860071,
+    "coding_fraction": 0.13867883257296418
+  },
+  {
+    "gene": "human_HBB",
+    "species": "H. sapiens",
+    "f1": 0.7036450079239303,
+    "recall": 1.0,
+    "precision": 0.5427872860635696,
+    "accuracy": 0.7675574891236793,
+    "coding_fraction": 0.2759477936606588
+  },
+  {
+    "gene": "human_TP53_part1",
+    "species": "H. sapiens",
+    "f1": 0.6702849389416554,
+    "recall": 0.9199255121042831,
+    "precision": 0.5272145144076841,
+    "accuracy": 0.9352043197120192,
+    "coding_fraction": 0.07159522698486767
+  },
+  {
+    "gene": "human_TP53_part2",
+    "species": "H. sapiens",
+    "f1": 0.5682326621923937,
+    "recall": 0.8595600676818951,
+    "precision": 0.4243943191311612,
+    "accuracy": 0.9477425032153253,
+    "coding_fraction": 0.0400054152846409
+  },
+  {
+    "gene": "yeast_ACT1",
+    "species": "S. cerevisiae",
+    "f1": 0.9551227773073666,
+    "recall": 1.0,
+    "precision": 0.9141004862236629,
+    "accuracy": 0.9262352122477383,
+    "coding_fraction": 0.7849686847599165
+  }
+]

@@ -1,0 +1,365 @@
+{
+  "genes": [
+    "human_HBB",
+    "human_TP53_part1",
+    "human_TP53_part2",
+    "human_BRCA1",
+    "celegans_unc54",
+    "arabidopsis_AG"
+  ],
+  "window_sizes": [
+    10,
+    25,
+    50,
+    75,
+    100,
+    150,
+    200,
+    300
+  ],
+  "results": {
+    "human_HBB": {
+      "coding_fraction": 0.2759477936606588,
+      "10": {
+        "precision": 0.4899,
+        "recall": 0.9797,
+        "f1": 0.6532,
+        "accuracy": 0.7129
+      },
+      "25": {
+        "precision": 0.5212,
+        "recall": 0.9977,
+        "f1": 0.6847,
+        "accuracy": 0.7464
+      },
+      "50": {
+        "precision": 0.5356,
+        "recall": 1.0,
+        "f1": 0.6976,
+        "accuracy": 0.7607
+      },
+      "75": {
+        "precision": 0.5163,
+        "recall": 1.0,
+        "f1": 0.681,
+        "accuracy": 0.7415
+      },
+      "100": {
+        "precision": 0.5428,
+        "recall": 1.0,
+        "f1": 0.7036,
+        "accuracy": 0.7676
+      },
+      "150": {
+        "precision": 0.5261,
+        "recall": 1.0,
+        "f1": 0.6894,
+        "accuracy": 0.7514
+      },
+      "200": {
+        "precision": 0.4728,
+        "recall": 1.0,
+        "f1": 0.6421,
+        "accuracy": 0.6924
+      },
+      "300": {
+        "precision": 0.4361,
+        "recall": 1.0,
+        "f1": 0.6074,
+        "accuracy": 0.6433
+      }
+    },
+    "human_TP53_part1": {
+      "coding_fraction": 0.07159522698486767,
+      "10": {
+        "precision": 0.2358,
+        "recall": 0.9255,
+        "f1": 0.3759,
+        "accuracy": 0.7799
+      },
+      "25": {
+        "precision": 0.3088,
+        "recall": 0.9236,
+        "f1": 0.4629,
+        "accuracy": 0.8465
+      },
+      "50": {
+        "precision": 0.4027,
+        "recall": 0.9246,
+        "f1": 0.561,
+        "accuracy": 0.8964
+      },
+      "75": {
+        "precision": 0.4851,
+        "recall": 0.9246,
+        "f1": 0.6363,
+        "accuracy": 0.9243
+      },
+      "100": {
+        "precision": 0.5272,
+        "recall": 0.9199,
+        "f1": 0.6703,
+        "accuracy": 0.9352
+      },
+      "150": {
+        "precision": 0.5391,
+        "recall": 0.9041,
+        "f1": 0.6755,
+        "accuracy": 0.9378
+      },
+      "200": {
+        "precision": 0.5013,
+        "recall": 0.9041,
+        "f1": 0.645,
+        "accuracy": 0.9287
+      },
+      "300": {
+        "precision": 0.4341,
+        "recall": 0.9041,
+        "f1": 0.5865,
+        "accuracy": 0.9087
+      }
+    },
+    "human_TP53_part2": {
+      "coding_fraction": 0.0400054152846409,
+      "10": {
+        "precision": 0.1391,
+        "recall": 0.8596,
+        "f1": 0.2395,
+        "accuracy": 0.7816
+      },
+      "25": {
+        "precision": 0.1919,
+        "recall": 0.8443,
+        "f1": 0.3128,
+        "accuracy": 0.8516
+      },
+      "50": {
+        "precision": 0.2892,
+        "recall": 0.8528,
+        "f1": 0.4319,
+        "accuracy": 0.9102
+      },
+      "75": {
+        "precision": 0.3949,
+        "recall": 0.8579,
+        "f1": 0.5408,
+        "accuracy": 0.9417
+      },
+      "100": {
+        "precision": 0.4244,
+        "recall": 0.8596,
+        "f1": 0.5682,
+        "accuracy": 0.9477
+      },
+      "150": {
+        "precision": 0.4408,
+        "recall": 0.8629,
+        "f1": 0.5835,
+        "accuracy": 0.9507
+      },
+      "200": {
+        "precision": 0.4204,
+        "recall": 0.8629,
+        "f1": 0.5654,
+        "accuracy": 0.9469
+      },
+      "300": {
+        "precision": 0.3698,
+        "recall": 0.8629,
+        "f1": 0.5178,
+        "accuracy": 0.9357
+      }
+    },
+    "human_BRCA1": {
+      "coding_fraction": 0.13867883257296418,
+      "10": {
+        "precision": 0.3748,
+        "recall": 0.9658,
+        "f1": 0.54,
+        "accuracy": 0.7718
+      },
+      "25": {
+        "precision": 0.4758,
+        "recall": 0.9842,
+        "f1": 0.6415,
+        "accuracy": 0.8474
+      },
+      "50": {
+        "precision": 0.574,
+        "recall": 0.9887,
+        "f1": 0.7264,
+        "accuracy": 0.8967
+      },
+      "75": {
+        "precision": 0.6214,
+        "recall": 0.9964,
+        "f1": 0.7654,
+        "accuracy": 0.9153
+      },
+      "100": {
+        "precision": 0.6204,
+        "recall": 0.9941,
+        "f1": 0.764,
+        "accuracy": 0.9148
+      },
+      "150": {
+        "precision": 0.577,
+        "recall": 0.991,
+        "f1": 0.7294,
+        "accuracy": 0.898
+      },
+      "200": {
+        "precision": 0.5305,
+        "recall": 0.9955,
+        "f1": 0.6922,
+        "accuracy": 0.8772
+      },
+      "300": {
+        "precision": 0.4617,
+        "recall": 1.0,
+        "f1": 0.6317,
+        "accuracy": 0.8383
+      }
+    },
+    "celegans_unc54": {
+      "coding_fraction": 0.16442091754892524,
+      "10": {
+        "precision": 0.5225,
+        "recall": 0.9629,
+        "f1": 0.6774,
+        "accuracy": 0.8492
+      },
+      "25": {
+        "precision": 0.5951,
+        "recall": 0.9678,
+        "f1": 0.737,
+        "accuracy": 0.8864
+      },
+      "50": {
+        "precision": 0.6297,
+        "recall": 0.9639,
+        "f1": 0.7618,
+        "accuracy": 0.9009
+      },
+      "75": {
+        "precision": 0.6316,
+        "recall": 0.9551,
+        "f1": 0.7604,
+        "accuracy": 0.901
+      },
+      "100": {
+        "precision": 0.6232,
+        "recall": 0.9551,
+        "f1": 0.7542,
+        "accuracy": 0.8977
+      },
+      "150": {
+        "precision": 0.601,
+        "recall": 0.958,
+        "f1": 0.7386,
+        "accuracy": 0.8885
+      },
+      "200": {
+        "precision": 0.5766,
+        "recall": 0.958,
+        "f1": 0.7199,
+        "accuracy": 0.8774
+      },
+      "300": {
+        "precision": 0.5139,
+        "recall": 0.958,
+        "f1": 0.6689,
+        "accuracy": 0.8441
+      }
+    },
+    "arabidopsis_AG": {
+      "coding_fraction": 0.23443983402489627,
+      "10": {
+        "precision": 0.4502,
+        "recall": 0.9268,
+        "f1": 0.606,
+        "accuracy": 0.7175
+      },
+      "25": {
+        "precision": 0.4762,
+        "recall": 0.9316,
+        "f1": 0.6302,
+        "accuracy": 0.7437
+      },
+      "50": {
+        "precision": 0.4948,
+        "recall": 0.9477,
+        "f1": 0.6501,
+        "accuracy": 0.7608
+      },
+      "75": {
+        "precision": 0.4981,
+        "recall": 0.9533,
+        "f1": 0.6543,
+        "accuracy": 0.7639
+      },
+      "100": {
+        "precision": 0.5183,
+        "recall": 0.967,
+        "f1": 0.6749,
+        "accuracy": 0.7816
+      },
+      "150": {
+        "precision": 0.5412,
+        "recall": 0.9992,
+        "f1": 0.7021,
+        "accuracy": 0.8012
+      },
+      "200": {
+        "precision": 0.5153,
+        "recall": 1.0,
+        "f1": 0.6802,
+        "accuracy": 0.7795
+      },
+      "300": {
+        "precision": 0.4585,
+        "recall": 1.0,
+        "f1": 0.6287,
+        "accuracy": 0.7231
+      }
+    }
+  },
+  "mean_f1_by_window": {
+    "10": 0.5153,
+    "25": 0.5782,
+    "50": 0.6381,
+    "75": 0.673,
+    "100": 0.6892,
+    "150": 0.6864,
+    "200": 0.6575,
+    "300": 0.6068
+  },
+  "best_overall_window": 100,
+  "best_per_gene": {
+    "human_HBB": {
+      "window": 100,
+      "f1": 0.7036
+    },
+    "human_TP53_part1": {
+      "window": 150,
+      "f1": 0.6755
+    },
+    "human_TP53_part2": {
+      "window": 150,
+      "f1": 0.5835
+    },
+    "human_BRCA1": {
+      "window": 75,
+      "f1": 0.7654
+    },
+    "celegans_unc54": {
+      "window": 50,
+      "f1": 0.7618
+    },
+    "arabidopsis_AG": {
+      "window": 150,
+      "f1": 0.7021
+    }
+  }
+}
