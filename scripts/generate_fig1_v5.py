@@ -88,7 +88,7 @@ def main():
             offset_data = json.load(f)
 
     # Comprehensive validation
-    with open("results/comprehensive/panel.json") as f:
+    with open("results/experiments/comprehensive/panel.json") as f:
         panel = json.load(f)
     emb_dir = Path("results/experiments/codon_periodicity/embeddings")
     results = []
