@@ -124,14 +124,14 @@ def main():
     ax_a.set_xticklabels([short_labels.get(d, d) for d in domains_present],
                           fontsize=5.5, rotation=45, ha="right")
     ax_a.set_ylabel("Inversion detected (%)")
-    ax_a.set_ylim(82, 102)
+    ax_a.set_ylim(0, 108)
     ax_a.set_title("A   Coding detection by domain (N=459)",
                     loc="left", fontweight="bold", fontsize=8)
 
     for bar, n, rate in zip(bars, ns, rates):
         ax_a.text(bar.get_x() + bar.get_width() / 2, rate + 0.5,
                   f"{rate:.0f}%", ha="center", fontsize=5, fontweight="bold")
-        ax_a.text(bar.get_x() + bar.get_width() / 2, 83, f"N={n}",
+        ax_a.text(bar.get_x() + bar.get_width() / 2, 2, f"N={n}",
                   ha="center", fontsize=4.5, color="#666")
 
     # ══════════════════════════════════════════════════════════════
