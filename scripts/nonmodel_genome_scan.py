@@ -282,8 +282,17 @@ def main():
 
     seq, ann_path = download_region(args.start, end)
 
-    print(f"\nExtracting embeddings...")
-    cos1, cos3 = asyncio.run(extract_and_analyze(seq, nim_url=args.nim_url))
+    cache_path = OUT_DIR / f"zt_chr1_{args.start}_{end}_cosines.npz"
+
+    if cache_path.exists():
+        print(f"\nLoading cached cosines from {cache_path}")
+        cached = np.load(cache_path)
+        cos1, cos3 = cached["cos1"], cached["cos3"]
+    else:
+        print(f"\nExtracting embeddings...")
+        cos1, cos3 = asyncio.run(extract_and_analyze(seq, nim_url=args.nim_url))
+        np.savez_compressed(cache_path, cos1=cos1, cos3=cos3)
+        print(f"  Cached cosines to {cache_path}")
 
     print(f"\nPlotting...")
     plot_and_compare(cos1, cos3, ann_path, len(seq), args.start)

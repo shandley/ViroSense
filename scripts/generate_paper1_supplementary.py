@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-Paper 1 Supplementary Figures S1, S2, S3, S6
+Paper 1 Supplementary Figures S1, S2, S3, S6, S7, S8, S9
 
 S1: Layer profiling — periodicity signal across Evo2 blocks
 S2: Comprehensive validation — inversion by domain, phylum, gene family
 S3: Non-coding specificity — detailed breakdown by control type
 S6: Smoothing window optimization for exon-intron detection
+S7: Stop codon clustering + amino acid identity NOT encoded
+S8: Protein identity clustering NEGATIVE (10 gene families, 3 configs)
+S9: Syntax vs semantics summary diagram
 """
 
 import json
@@ -352,9 +355,323 @@ def generate_s6():
     print("  Saved s6_smoothing_optimization.png")
 
 
+def generate_s7():
+    """S7: Stop codon clustering + amino acid identity NOT encoded."""
+    print("Generating S7: Codon table analysis...")
+
+    with open("results/experiments/codon_table/codon_embeddings.json") as f:
+        data = json.load(f)
+
+    embeddings = data["embeddings"]
+    codon_table = data["codon_table"]
+    aa_properties = data["aa_properties"]
+
+    codons = sorted(embeddings.keys())
+    emb_matrix = np.array([embeddings[c] for c in codons])
+    aas = [codon_table[c] for c in codons]
+    is_stop = [aa == "Stop" for aa in aas]
+
+    # Cosine distance matrix (use float32 to avoid overflow in 8192-D)
+    from numpy.linalg import norm
+    emb_matrix = emb_matrix.astype(np.float32)
+    norms = norm(emb_matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    normed = emb_matrix / norms
+    cos_sim = normed @ normed.T
+    cos_dist = 1 - cos_sim
+
+    # Stop codon analysis
+    stop_idx = [i for i, s in enumerate(is_stop) if s]
+    sense_idx = [i for i, s in enumerate(is_stop) if not s]
+
+    within_stop = np.mean([cos_dist[i, j] for i in stop_idx for j in stop_idx if i < j])
+    stop_to_sense = np.mean([cos_dist[i, j] for i in stop_idx for j in sense_idx])
+    stop_ratio = stop_to_sense / within_stop if within_stop > 0 else 0
+
+    # Synonymous codon analysis
+    aa_groups = defaultdict(list)
+    for i, aa in enumerate(aas):
+        if aa != "Stop":
+            aa_groups[aa].append(i)
+
+    within_aa_dists = []
+    between_aa_dists = []
+    for aa, indices in aa_groups.items():
+        if len(indices) > 1:
+            for ii in range(len(indices)):
+                for jj in range(ii + 1, len(indices)):
+                    within_aa_dists.append(cos_dist[indices[ii], indices[jj]])
+        for other_aa, other_indices in aa_groups.items():
+            if other_aa != aa:
+                for ii in indices:
+                    for jj in other_indices:
+                        between_aa_dists.append(cos_dist[ii, jj])
+
+    syn_ratio = np.mean(between_aa_dists) / np.mean(within_aa_dists) if within_aa_dists else 0
+
+    # PCA
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components=2)
+    coords = pca.fit_transform(normed)
+
+    prop_colors = {
+        "hydrophobic": "#1565C0",
+        "polar": "#4CAF50",
+        "charged": "#F44336",
+        "aromatic": "#9C27B0",
+        "special": "#FF9800",
+    }
+
+    fig = plt.figure(figsize=(12, 10))
+    gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.35, wspace=0.30)
+
+    # Panel A: Stop codon clustering
+    ax_a = fig.add_subplot(gs[0, 0])
+    categories = ["Within stop\ncodons", "Stop vs\nsense codons", "Within\nsynonymous", "Between\namino acids"]
+    values = [within_stop, stop_to_sense, np.mean(within_aa_dists), np.mean(between_aa_dists)]
+    colors_bar = ["#F44336", "#FF9800", "#4CAF50", "#1565C0"]
+    bars = ax_a.bar(range(len(categories)), values, color=colors_bar, alpha=0.7,
+                    edgecolor="black", linewidth=0.5, width=0.6)
+    ax_a.set_xticks(range(len(categories)))
+    ax_a.set_xticklabels(categories, fontsize=7)
+    ax_a.set_ylabel("Mean cosine distance")
+    ax_a.set_title("A   Stop codons cluster in embedding space", loc="left", fontweight="bold")
+    for bar, val in zip(bars, values):
+        ax_a.text(bar.get_x() + bar.get_width() / 2, val + 0.002, f"{val:.3f}",
+                  ha="center", fontsize=7, fontweight="bold")
+
+    ax_a.annotate("", xy=(0, within_stop + 0.01), xytext=(1, stop_to_sense + 0.01),
+                  arrowprops=dict(arrowstyle="<->", color="#333", lw=1.2))
+    ax_a.text(0.5, (within_stop + stop_to_sense) / 2 + 0.015, f"{stop_ratio:.2f}×",
+              ha="center", fontsize=9, fontweight="bold", color="#C62828")
+
+    # Panel B: PCA colored by amino acid property
+    ax_b = fig.add_subplot(gs[0, 1])
+    for i, (c, aa) in enumerate(zip(codons, aas)):
+        if aa == "Stop":
+            color = "#333333"
+            marker = "X"
+            size = 80
+        else:
+            prop = aa_properties.get(aa, "special")
+            color = prop_colors.get(prop, "#999")
+            marker = "o"
+            size = 40
+        ax_b.scatter(coords[i, 0], coords[i, 1], c=color, s=size, marker=marker,
+                     alpha=0.7, edgecolors="black", linewidth=0.3, zorder=3 if aa == "Stop" else 2)
+        ax_b.annotate(c, (coords[i, 0], coords[i, 1]), fontsize=4, ha="center", va="bottom",
+                      xytext=(0, 3), textcoords="offset points")
+
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=prop_colors["hydrophobic"],
+               markersize=7, label="Hydrophobic"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=prop_colors["polar"],
+               markersize=7, label="Polar"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=prop_colors["charged"],
+               markersize=7, label="Charged"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=prop_colors["aromatic"],
+               markersize=7, label="Aromatic"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=prop_colors["special"],
+               markersize=7, label="Special (Gly/Pro/Cys)"),
+        Line2D([0], [0], marker="X", color="w", markerfacecolor="#333",
+               markersize=8, label="Stop codons"),
+    ]
+    ax_b.legend(handles=legend_elements, fontsize=6, loc="upper right")
+    ax_b.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.1%})")
+    ax_b.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.1%})")
+    ax_b.set_title("B   PCA of codon embeddings (colored by AA property)", loc="left", fontweight="bold")
+
+    # Panel C: PCA colored by GC content
+    ax_c = fig.add_subplot(gs[1, 0])
+    gc_vals = [sum(1 for b in c if b in "GC") / 3 for c in codons]
+    sc = ax_c.scatter(coords[:, 0], coords[:, 1], c=gc_vals, cmap="RdYlBu_r",
+                      s=40, alpha=0.8, edgecolors="black", linewidth=0.3, vmin=0, vmax=1)
+    plt.colorbar(sc, ax=ax_c, label="GC fraction", shrink=0.8)
+    for i, c in enumerate(codons):
+        ax_c.annotate(c, (coords[i, 0], coords[i, 1]), fontsize=4, ha="center", va="bottom",
+                      xytext=(0, 3), textcoords="offset points")
+    ax_c.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.1%})")
+    ax_c.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.1%})")
+    ax_c.set_title("C   GC content dominates embedding space", loc="left", fontweight="bold")
+
+    # Panel D: Silhouette scores
+    ax_d = fig.add_subplot(gs[1, 1])
+
+    # Compute silhouette by AA grouping
+    from sklearn.metrics import silhouette_score
+    sense_embs = normed[~np.array(is_stop)]
+    sense_aas = [aa for aa, s in zip(aas, is_stop) if not s]
+    aa_sil = silhouette_score(sense_embs, sense_aas, metric="cosine")
+
+    # By property
+    sense_props = [aa_properties.get(aa, "special") for aa in sense_aas]
+    prop_sil = silhouette_score(sense_embs, sense_props, metric="cosine")
+
+    # By GC
+    gc_labels = ["high" if gc > 0.5 else "low" for gc, s in zip(gc_vals, is_stop) if not s]
+    gc_sil = silhouette_score(sense_embs, gc_labels, metric="cosine")
+
+    # By first base
+    first_labels = [c[0] for c, s in zip(codons, is_stop) if not s]
+    first_sil = silhouette_score(sense_embs, first_labels, metric="cosine")
+
+    groupings = ["Amino acid\nidentity", "Biochemical\nproperty", "GC content\n(high/low)", "First\nnucleotide"]
+    sils = [aa_sil, prop_sil, gc_sil, first_sil]
+    bar_colors = ["#F44336" if s < 0 else "#4CAF50" for s in sils]
+
+    bars = ax_d.bar(range(len(groupings)), sils, color=bar_colors, alpha=0.7,
+                    edgecolor="black", linewidth=0.5, width=0.6)
+    ax_d.set_xticks(range(len(groupings)))
+    ax_d.set_xticklabels(groupings, fontsize=7)
+    ax_d.set_ylabel("Silhouette score")
+    ax_d.axhline(0, color="black", linewidth=0.5)
+    ax_d.set_title("D   Clustering quality by grouping", loc="left", fontweight="bold")
+    for bar, val in zip(bars, sils):
+        ax_d.text(bar.get_x() + bar.get_width() / 2, val + 0.02 if val >= 0 else val - 0.04,
+                  f"{val:.2f}", ha="center", fontsize=8, fontweight="bold")
+
+    plt.savefig(OUT_DIR / "s7_codon_table.png", dpi=200, bbox_inches="tight", facecolor="white")
+    plt.savefig(OUT_DIR / "s7_codon_table.pdf", bbox_inches="tight", facecolor="white")
+    plt.close()
+    print(f"  Saved s7_codon_table.png (stop ratio: {stop_ratio:.2f}×, syn ratio: {syn_ratio:.2f}×, AA sil: {aa_sil:.2f})")
+
+
+def generate_s8():
+    """S8: Protein identity clustering NEGATIVE across 3 model configs."""
+    print("Generating S8: Protein identity clustering...")
+
+    with open("results/experiments/codon_periodicity/functional_clustering_comparison.json") as f:
+        data = json.load(f)
+
+    configs = ["40B_blocks10", "40B_blocks28", "7B_layer10"]
+    config_labels = ["Evo2 40B\nblock 10", "Evo2 40B\nblock 28", "Evo2 7B\nlayer 10"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+
+    families = list(data["40B_blocks10"]["families"].keys())
+    family_short = [f.replace("family_", "") for f in families]
+
+    for idx, (config, label) in enumerate(zip(configs, config_labels)):
+        ax = axes[idx]
+        cfg = data[config]
+
+        ratios = [cfg["families"][f]["ratio"] for f in families]
+        ns = [int(cfg["families"][f]["n"]) for f in families]
+
+        colors = ["#C8E6C9" if r < 1.0 else "#FFCDD2" for r in ratios]
+        bars = ax.barh(range(len(families)), ratios, color=colors,
+                       edgecolor="black", linewidth=0.3, height=0.6)
+        ax.axvline(1.0, color="#C62828", linewidth=1, linestyle="--", alpha=0.7)
+        ax.set_yticks(range(len(families)))
+        ax.set_yticklabels([f"{f} (n={n})" for f, n in zip(family_short, ns)], fontsize=7)
+        ax.set_xlabel("Between/within distance ratio")
+        ax.invert_yaxis()
+
+        sil = cfg["silhouette_pca"]
+        nn = cfg["nn_accuracy_pca"]
+        ax.set_title(f"{label}\nsilhouette: {sil:.3f}, NN acc: {nn:.1%}",
+                     fontweight="bold", fontsize=8)
+
+        # Annotation: ratio < 1.0 means within < between (good clustering)
+        for i, (bar, r) in enumerate(zip(bars, ratios)):
+            ax.text(r + 0.01, i, f"{r:.2f}", va="center", fontsize=6)
+
+    fig.suptitle("Supplementary Figure S8: Protein identity clustering — NEGATIVE\n"
+                 "(ratio > 1.0 = within-family MORE distant than between-family)",
+                 fontsize=10, fontweight="bold", y=1.02)
+    plt.tight_layout()
+    plt.savefig(OUT_DIR / "s8_protein_clustering.png", dpi=200, bbox_inches="tight", facecolor="white")
+    plt.savefig(OUT_DIR / "s8_protein_clustering.pdf", bbox_inches="tight", facecolor="white")
+    plt.close()
+    print("  Saved s8_protein_clustering.png")
+
+
+def generate_s9():
+    """S9: Syntax vs semantics summary — what DNA models learn and don't."""
+    print("Generating S9: Syntax vs semantics...")
+
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    ax.axis("off")
+
+    # Title
+    ax.text(5, 9.5, "Supplementary Figure S9: What DNA foundation models learn",
+            ha="center", fontsize=12, fontweight="bold")
+    ax.text(5, 9.0, "Delineating DNA syntax (learnable) from protein semantics (not learnable)",
+            ha="center", fontsize=9, fontstyle="italic", color="#555")
+
+    # Learned (syntax) box
+    ax.add_patch(plt.Rectangle((0.3, 4.5), 4.4, 4.0, fill=True,
+                                facecolor="#C8E6C9", edgecolor="#2E7D32", linewidth=1.5, zorder=1))
+    ax.text(2.5, 8.2, "LEARNED (DNA syntax)", ha="center", fontsize=10,
+            fontweight="bold", color="#2E7D32")
+
+    learned = [
+        ("Triplet periodicity", "98.5% detection, 459 seqs, 55 phyla"),
+        ("3-periodic comb filter", "Offsets 3,6,9,12,15 elevated"),
+        ("Stop codon boundaries", "1.55× clustering ratio"),
+        ("Exon-intron structure", "98% recall, 36 genes, 13 species"),
+        ("Coding vs non-coding", "94.7% per-position accuracy"),
+    ]
+    for i, (feat, evidence) in enumerate(learned):
+        y = 7.6 - i * 0.6
+        ax.text(0.6, y, f"+ {feat}", fontsize=8, fontweight="bold", color="#2E7D32")
+        ax.text(0.8, y - 0.22, evidence, fontsize=6.5, color="#555")
+
+    # NOT learned (semantics) box
+    ax.add_patch(plt.Rectangle((5.3, 4.5), 4.4, 4.0, fill=True,
+                                facecolor="#FFCDD2", edgecolor="#C62828", linewidth=1.5, zorder=1))
+    ax.text(7.5, 8.2, "NOT LEARNED (protein semantics)", ha="center", fontsize=10,
+            fontweight="bold", color="#C62828")
+
+    not_learned = [
+        ("Amino acid identity", "Silhouette -0.40, no AA clustering"),
+        ("Biochemical properties", "Hydrophobic/polar/charged mixed"),
+        ("Protein function", "NN accuracy 13-20% (10 families)"),
+        ("Gene family identity", "Silhouette -0.06 to -0.21"),
+        ("Wobble position specificity", "Offset-1 > offset-2 is sequential"),
+    ]
+    for i, (feat, evidence) in enumerate(not_learned):
+        y = 7.6 - i * 0.6
+        ax.text(5.6, y, f"- {feat}", fontsize=8, fontweight="bold", color="#C62828")
+        ax.text(5.8, y - 0.22, evidence, fontsize=6.5, color="#555")
+
+    # Bottom explanation
+    ax.add_patch(plt.Rectangle((0.3, 0.5), 9.4, 3.5, fill=True,
+                                facecolor="#FFF3E0", edgecolor="#FF9800", linewidth=1, zorder=1))
+    ax.text(5, 3.7, "Interpretation", ha="center", fontsize=10, fontweight="bold", color="#E65100")
+
+    explanations = [
+        "Next-nucleotide prediction captures DNA-level statistical regularities:",
+        "  -Codon triplets create 3bp periodicity in nucleotide transition probabilities",
+        "  -Stop codons create predictable sequence transitions at gene boundaries",
+        "  -Splice sites create compositional shifts between exons and introns",
+        "",
+        "But it cannot capture protein-level evolutionary selection:",
+        "  -Synonymous codons (same AA) have different DNA statistics but identical protein effect",
+        "  -Protein function depends on 3D structure, not DNA sequence composition",
+        "  -The codon\u2192amino acid mapping is mediated by tRNA, invisible to DNA prediction",
+    ]
+    for i, line in enumerate(explanations):
+        y = 3.2 - i * 0.3
+        color = "#333" if not line.startswith("But") else "#C62828"
+        weight = "bold" if (line and not line.startswith(" ")) else "normal"
+        ax.text(0.6, y, line, fontsize=7, color=color, fontweight=weight)
+
+    plt.savefig(OUT_DIR / "s9_syntax_vs_semantics.png", dpi=200, bbox_inches="tight", facecolor="white")
+    plt.savefig(OUT_DIR / "s9_syntax_vs_semantics.pdf", bbox_inches="tight", facecolor="white")
+    plt.close()
+    print("  Saved s9_syntax_vs_semantics.png")
+
+
 if __name__ == "__main__":
     generate_s1()
     generate_s2()
     generate_s3()
     generate_s6()
+    generate_s7()
+    generate_s8()
+    # S9 removed — syntax vs semantics content is in manuscript Results text
     print("\nAll supplementary figures generated.")
