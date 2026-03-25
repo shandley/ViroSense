@@ -1,6 +1,15 @@
 # ViroSense - Claude Code Context
 
-Last updated: 2026-03-17
+Last updated: 2026-03-25
+
+## Repository Split (2026-03-25)
+
+This repo contains **Paper 2: ViroSense viral detection and characterization**. The universal gene structure discovery work (Paper 1) has been split into a separate repo:
+
+- **Paper 1**: [dna-embedding-gene-discovery](https://github.com/shandley/dna-embedding-gene-discovery) — "DNA foundation model embeddings enable unsupervised gene discovery across eukaryotic kingdoms"
+- **Paper 2**: This repo (ViroSense) — Viral detection, prophage scanning, RNA dark matter, structural annotation
+
+Paper 1 is near submission-ready. Paper 2 builds on Paper 1 findings (particularly the embedding methodology) but focuses on virology applications.
 
 ## Project Overview
 
@@ -396,7 +405,7 @@ bash htcf/virosense_pipeline.sh detect -i contigs.fasta -o results/
 - **3-class contig typing**: virus/plasmid/chromosome classifier — 94.5% CV accuracy, 91.5% ± 2.9% plasmid detection, 99.2% plasmid specificity. Dual-mode output: binary (max viral sensitivity) + 3-class (contig typing).
 - **Unsupervised clustering**: HDBSCAN ARI=0.903 recovering 5 biological categories. Euk. RNA viruses separate from dsDNA phages (99% pure cluster). See `docs/cluster_validation.md`.
 - **Per-position embeddings**: Coding norm 1.72× intergenic (41 sequences). **Codon 3bp periodicity** is dominant FFT frequency. Offset-3 cosine inversion is a universal coding signature (94.7% accuracy, 100% of sequences). RNA viruses have strongest periodicity (0.822). See `docs/poc_gene_boundaries.md`.
-- **Publication plan**: `docs/publication_plan.md`. Target: Nature Methods.
+- **Paper 2 plan**: `docs/paper2_plan.md`. All data complete, write after Paper 1 submitted.
 
 ### Existing planned work
 - **Retrain 7B production classifier with L2-norm**: 7B classifier needs `--normalize-l2` for production use (40B does not benefit from L2-norm)
